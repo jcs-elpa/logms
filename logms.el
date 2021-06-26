@@ -76,8 +76,10 @@
         (logms-with-messages-buffer
           (make-text-button beg (+ beg display-len) 'follow-link t
                             'action (lambda (&rest _)
-                                      (switch-to-buffer-other-window source)
-                                      (goto-char pt)))))
+                                      (if (not (buffer-live-p source))
+                                          (user-error "Buffer no longer exists: %s" source)
+                                        (switch-to-buffer-other-window source)
+                                        (goto-char pt))))))
     (apply 'message fmt args)))
 
 (provide 'logms)
