@@ -6,13 +6,13 @@
 
 ## Usage
 
+In `*scratch*` buffer,
+
 ```el
-(liquidmetal-score "FooBar" "foo")   ; 0.950
-(liquidmetal-score "FooBar" "fb")    ; 0.917
-(liquidmetal-score "Foo Bar" "fb")   ; 0.929
-(liquidmetal-score "Foo Bar" "baz")  ; 0.0
-(liquidmetal-score "Foo Bar" "")     ; 0.8
+(logms "Hello World!")  ; *scratch*:1:22 Hello World!
 ```
+
+This will produce clickable text so you can navigate to that buffer!
 
 ## Contribution
 
