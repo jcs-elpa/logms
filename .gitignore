@@ -1,0 +1,10 @@
+# ignore these directories.
+/.git
+/recipes
+/project
+
+# ignore generated files.
+*.elc
+
+# ignore video
+/video
