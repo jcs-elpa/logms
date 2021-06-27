@@ -67,6 +67,7 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
                                   (switch-to-buffer-other-window source)
                                   (goto-char pt))))))
 
+;;;###autoload
 (defun logms (fmt &rest args)
   "Debug message like function `message' with same argument FMT and ARGS."
   (if logms-show
