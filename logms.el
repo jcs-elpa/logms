@@ -66,16 +66,23 @@ It returns cons cell from by (current frame . backtrace)."
       (setq frame (backtrace-frame index)
             flag (nth 0 frame) exec (nth 1 frame)
             index (1+ index))
+      ;; Find the next call stack, if frame's call returns non-symbol then
+      ;; it is call from the beginning of the call stack
       (if (and meet flag) (setq break t) (push frame backtrace))
+      ;; First we find the logms call stack
       (when (eq exec 'logms) (setq meet t)))
     (cons frame (reverse backtrace))))
 
 (defun logms--find-logms-point (backstrace start)
-  ""
+  "Move to the source point.
+
+Argument START to prevent search from the beginning of the file.
+Argument BACKSTRACE is used to find the accurate position of the message."
   (jcs-log-list backstrace)
   (let ((end (save-excursion (forward-sexp) (point))))
     (re-search-forward "(logms[ \t\"]" end t)
-    start))
+    ;; TODO: ..
+    (point)))
 
 (defun logms--make-button (beg end source pt call)
   "Make a button from BEG to END.
@@ -99,6 +106,8 @@ Argument CALL is the last call stack data from current execution point."
 (defun logms--find-source (call)
   "Return the source information by CALL."
   (let* ((source (current-buffer)) (pt (point))
+         (line (line-number-at-pos pt))
+         (column (current-column))
          (frame (car call)) (fnc (nth 1 frame))
          (backstrace (cdr call))
          (old-buf-lst (buffer-list)))
@@ -108,11 +117,13 @@ Argument CALL is the last call stack data from current execution point."
         (unless (ignore-errors (find-function fnc))
           ;; Update source information
           (setq source (buffer-file-name)
-                pt (logms--find-logms-point backstrace (point)))
+                pt (logms--find-logms-point backstrace (point))
+                line (line-number-at-pos (point))
+                column (current-column))
           ;; Kill if it wasn't opened
           (unless (= (length old-buf-lst) (length (buffer-list)))
             (kill-buffer (current-buffer))))))
-    (cons source pt)))
+    (list source pt line column)))
 
 ;;;###autoload
 (defun logms (fmt &rest args)
@@ -120,9 +131,9 @@ Argument CALL is the last call stack data from current execution point."
   (if logms-show
       (let* ((call (logms--last-call-stack-backtrace))
              (info (logms--find-source call))
-             (source (car info)) (pt (cdr info))
+             (source (nth 0 info)) (pt (nth 1 info)) (line (nth 2 info)) (column (nth 3 info))
              (name (if (stringp source) (f-filename source) (buffer-name source)))
-             (display (format "%s:%s:%s" name (line-number-at-pos pt) (current-column)))
+             (display (format "%s:%s:%s" name line column))
              (display-len (length display))
              (beg (logms--next-msg-point)))
         (apply 'message (concat "%s " fmt) display args)
