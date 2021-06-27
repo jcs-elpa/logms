@@ -55,12 +55,17 @@
   "Return max point in *Messages* buffer."
   (logms-with-messages-buffer (point-max)))
 
-(defun logms--last-logms-p ()
-  "Return non-nil, if last line in *Messages* buffer is the same log."
-  (logms-with-messages-buffer
-    (goto-char (point-max))
-    (forward-line -1)
-    (get-text-property (line-beginning-position) 'button)))
+(defun logms--make-button (beg end source pt)
+  "Make a button from BEG to END.
+Argument SOURCE is the buffer prints the log.
+Argument PT indicates where the log beging print inside SOURCE buffer."
+  (ignore-errors
+    (make-text-button beg end 'follow-link t
+                      'action (lambda (&rest _)
+                                (if (not (buffer-live-p source))
+                                    (user-error "Buffer no longer exists: %s" source)
+                                  (switch-to-buffer-other-window source)
+                                  (goto-char pt))))))
 
 (defun logms (fmt &rest args)
   "Debug message like function `message' with same argument FMT and ARGS."
@@ -69,17 +74,16 @@
              (source (current-buffer)) (pt (point))
              (display (format "%s:%s:%s" name (line-number-at-pos pt) (current-column)))
              (display-len (length display))
-             beg)
-        (when (logms--last-logms-p) (message "\n"))
-        (setq beg (logms--next-msg-point))
+             (beg (logms--next-msg-point)))
         (apply 'message (concat "%s " fmt) display args)
         (logms-with-messages-buffer
-          (make-text-button beg (+ beg display-len) 'follow-link t
-                            'action (lambda (&rest _)
-                                      (if (not (buffer-live-p source))
-                                          (user-error "Buffer no longer exists: %s" source)
-                                        (switch-to-buffer-other-window source)
-                                        (goto-char pt))))))
+          (unless (logms--make-button beg (+ beg display-len) source pt)
+            (setq beg (save-excursion
+                        (goto-char beg)
+                        (when (= (line-beginning-position) (point-max))
+                          (forward-line -1))
+                        (line-beginning-position)))
+            (logms--make-button beg (+ beg display-len) source pt))))
     (apply 'message fmt args)))
 
 (provide 'logms)
