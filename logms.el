@@ -6,7 +6,7 @@
 ;; Author: Shen, Jen-Chieh <jcs090218@gmail.com>
 ;; Description: See where the message came from
 ;; Keyword:
-;; Version: 0.1.0
+;; Version: 0.2.0
 ;; Package-Requires: ((emacs "24.4") (s "1.9.0"))
 ;; URL: https://github.com/jcs-elpa/logms
 
