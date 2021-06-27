@@ -7,7 +7,7 @@
 ;; Description: See where the message came from
 ;; Keyword:
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "24.3"))
+;; Package-Requires: ((emacs "24.3") (s "1.9.0"))
 ;; URL: https://github.com/jcs-elpa/logms
 
 ;; This file is NOT part of GNU Emacs.
@@ -33,6 +33,7 @@
 ;;; Code:
 
 (require 'button)
+(require 's)
 
 (defgroup logms nil
   "See where the message came from."
@@ -45,11 +46,69 @@
   :type 'boolean
   :group 'logms)
 
+(defconst logms--search-context "(logms[ \t\"]*"
+  "Regular expression to search for logms calls.")
+
+;;
+;; (@* "Util" )
+;;
+
 (defmacro logms-with-messages-buffer (&rest body)
   "Execute BODY within the *Messages* buffer."
   (declare (indent 0) (debug t))
   `(with-current-buffer "*Messages*"
      (let (buffer-read-only) (progn ,@body))))
+
+(defun logms--count-symbols (symbol beg end)
+  "Count the SYMBOL from region BEG to END."
+  (let ((count 0))
+    (save-excursion
+      (goto-char beg)
+      (while (search-forward symbol end t)
+        (setq count (1+ count))))
+    count))
+
+(defun logms--nest-level-in-region (beg end)
+  "Return the nest level from region BEG to END."
+  (let ((opens (logms--count-symbols "(" beg end))
+        (closes (logms--count-symbols ")" beg end)))
+    (abs (- opens closes))))
+
+(defun logms--nest-level-at-point ()
+  "Return a integer indicates the nested level from current point."
+  (let ((left (logms--nest-level-in-region (point-min) (point)))
+        (right (logms--nest-level-in-region (point) (point-max))))
+    (/ (+ left right) 2)))
+
+(defun logms--return-args-at-point ()
+  "Return the full argument from point."
+  (let ((beg (point)) content)
+    (save-excursion
+      (forward-sexp)
+      (setq content (buffer-substring beg (point))))
+    (setq content (s-replace "(" "" content)
+          content (s-replace ")" "" content)
+          content (s-replace-regexp "logms[ ]*" "" content))
+    (split-string content "\"" t)))
+
+(defun logms--compare-list (lst1 lst2)
+  "Return non-nil if LST1 is identical with LST2."
+  (let ((index 0) (len1 (length lst1)) (len2 (length lst2)) (same t) break
+        item1 item2)
+    (unless (= len1 len2) (setq same nil))
+    (while (and same (not break) (< index len1))
+      (setq item1 (nth index lst1) item2 (nth index lst2)
+            item1 (format "%s" item1) item2 (format "%s" item2)
+            ;; Trim the argument string should be fine since we are comparing
+            ;; arguments and not the string itself!
+            item1 (string-trim item1) item2 (string-trim item2))
+      (unless (string= item1 item2) (setq same nil break t))
+      (setq index (1+ index)))
+    same))
+
+;;
+;; (@* "Core" )
+;;
 
 (defun logms--next-msg-point ()
   "Return max point in *Messages* buffer."
@@ -66,29 +125,39 @@ It returns cons cell from by (current frame . backtrace)."
       (setq frame (backtrace-frame index)
             flag (nth 0 frame) exec (nth 1 frame)
             index (1+ index))
-      ;; Find the next call stack, if frame's call returns non-symbol then
+      ;; Find the next call stack, if flag returns non-symbol then
       ;; it is call from the beginning of the call stack
-      (if (and meet flag) (setq break t) (push frame backtrace))
+      ;;
+      ;; Otherwise, we push all local frames
+      (when meet (if flag (setq break t) (push frame backtrace)))
       ;; First we find the logms call stack
       (when (eq exec 'logms) (setq meet t)))
     (cons frame (reverse backtrace))))
 
-(defun logms--find-logms-point (backstrace start)
+(defun logms--find-logms-point (backstrace start args)
   "Move to the source point.
 
 Argument START to prevent search from the beginning of the file.
 Argument BACKSTRACE is used to find the accurate position of the message."
-  (jcs-log-list backstrace)
-  (let ((end (save-excursion (forward-sexp) (point))))
-    (re-search-forward "(logms[ \t\"]" end t)
-    ;; TODO: ..
+  (let ((level (length backstrace)) parsed-args
+        (end (save-excursion (forward-sexp) (point))) found (searching t))
+    (when (= level 0) (setq level 1))
+    (while (and (not found) searching)
+      (setq searching (re-search-forward logms--search-context end t))
+      (re-search-backward "(" start t)
+      (when (= level (logms--nest-level-at-point))
+        (setq parsed-args (logms--return-args-at-point))
+        (when (logms--compare-list args parsed-args)
+          (setq found t)))
+      (goto-char searching))
+    ;; Go back to the start of the symbol so it looks nicer
+    (re-search-backward logms--search-context start t)
     (point)))
 
-(defun logms--make-button (beg end source pt call)
+(defun logms--make-button (beg end source pt)
   "Make a button from BEG to END.
 Argument SOURCE is the buffer prints the log.
-Argument PT indicates where the log beging print inside SOURCE buffer.
-Argument CALL is the last call stack data from current execution point."
+Argument PT indicates where the log beging print inside SOURCE buffer."
   (ignore-errors
     (make-text-button beg end 'follow-link t
                       'action (lambda (&rest _)
@@ -103,7 +172,7 @@ Argument CALL is the last call stack data from current execution point."
                                   (switch-to-buffer-other-window source)
                                   (goto-char pt))))))
 
-(defun logms--find-source (call)
+(defun logms--find-source (call args)
   "Return the source information by CALL."
   (let* ((source (current-buffer)) (pt (point))
          (line (line-number-at-pos pt))
@@ -117,7 +186,7 @@ Argument CALL is the last call stack data from current execution point."
         (unless (ignore-errors (find-function fnc))
           ;; Update source information
           (setq source (buffer-file-name)
-                pt (logms--find-logms-point backstrace (point))
+                pt (logms--find-logms-point backstrace (point) args)
                 line (line-number-at-pos (point))
                 column (current-column))
           ;; Kill if it wasn't opened
@@ -130,7 +199,7 @@ Argument CALL is the last call stack data from current execution point."
   "Debug message like function `message' with same argument FMT and ARGS."
   (if logms-show
       (let* ((call (logms--last-call-stack-backtrace))
-             (info (logms--find-source call))
+             (info (logms--find-source call (append (list fmt) args)))
              (source (nth 0 info)) (pt (nth 1 info)) (line (nth 2 info)) (column (nth 3 info))
              (name (if (stringp source) (f-filename source) (buffer-name source)))
              (display (format "%s:%s:%s" name line column))
@@ -138,13 +207,13 @@ Argument CALL is the last call stack data from current execution point."
              (beg (logms--next-msg-point)))
         (apply 'message (concat "%s " fmt) display args)
         (logms-with-messages-buffer
-          (unless (logms--make-button beg (+ beg display-len) source pt call)
+          (unless (logms--make-button beg (+ beg display-len) source pt)
             (setq beg (save-excursion
                         (goto-char beg)
                         (when (= (line-beginning-position) (point-max))
                           (forward-line -1))
                         (line-beginning-position)))
-            (logms--make-button beg (+ beg display-len) source pt call))))
+            (logms--make-button beg (+ beg display-len) source pt))))
     (apply 'message fmt args)))
 
 (provide 'logms)
