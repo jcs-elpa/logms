@@ -4,6 +4,10 @@
 # logms
 > See where the message came from
 
+<p align="center">
+  <img src="./etc/demo.gif"/>
+</p>
+
 ## Usage
 
 In `*scratch*` buffer,
