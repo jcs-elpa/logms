@@ -150,6 +150,8 @@ See function `logms--find-source' description for argument ARGS."
       (when (= level (logms--nest-level-at-point))
         (setq parsed-args (logms--return-args-at-point))
         (when (logms--compare-list args parsed-args)
+          ;; FIXME: If user has same log string in same level then this
+          ;; will gave them the same result
           (setq found t)))
       (goto-char searching))
     ;; Go back to the start of the symbol so it looks nicer
