@@ -7,7 +7,7 @@
 ;; Description: See where the message came from
 ;; Keyword:
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "24.3") (s "1.9.0"))
+;; Package-Requires: ((emacs "24.4") (s "1.9.0"))
 ;; URL: https://github.com/jcs-elpa/logms
 
 ;; This file is NOT part of GNU Emacs.
@@ -138,7 +138,9 @@ It returns cons cell from by (current frame . backtrace)."
   "Move to the source point.
 
 Argument START to prevent search from the beginning of the file.
-Argument BACKSTRACE is used to find the accurate position of the message."
+Argument BACKSTRACE is used to find the accurate position of the message.
+
+See function `logms--find-source' description for argument ARGS."
   (let ((level (length backstrace)) parsed-args
         (end (save-excursion (forward-sexp) (point))) found (searching t))
     (when (= level 0) (setq level 1))
@@ -173,7 +175,10 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
                                   (goto-char pt))))))
 
 (defun logms--find-source (call args)
-  "Return the source information by CALL."
+  "Return the source information by CALL.
+
+Argument ARGS is a list with format and printing arguments to compare and
+to define the unique log."
   (let* ((source (current-buffer)) (pt (point))
          (line (line-number-at-pos pt))
          (column (current-column))
