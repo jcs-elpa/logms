@@ -55,36 +55,85 @@
   "Return max point in *Messages* buffer."
   (logms-with-messages-buffer (point-max)))
 
-(defun logms--make-button (beg end source pt)
+(defun logms--last-call-stack-backtrace ()
+  "Return the last stack frame right before of the logms function begin called.
+
+By using this function to find the where the log came from.
+
+It returns cons cell from by (current frame . backtrace)."
+  (let (backtrace (index 0) frame break exec meet flag)
+    (while (not break)
+      (setq frame (backtrace-frame index)
+            flag (nth 0 frame) exec (nth 1 frame)
+            index (1+ index))
+      (if (and meet flag) (setq break t) (push frame backtrace))
+      (when (eq exec 'logms) (setq meet t)))
+    (cons frame (reverse backtrace))))
+
+(defun logms--find-logms-point (backstrace start)
+  ""
+  (jcs-log-list backstrace)
+  (let ((end (save-excursion (forward-sexp) (point))))
+    (re-search-forward "(logms[ \t\"]" end t)
+    start))
+
+(defun logms--make-button (beg end source pt call)
   "Make a button from BEG to END.
 Argument SOURCE is the buffer prints the log.
-Argument PT indicates where the log beging print inside SOURCE buffer."
+Argument PT indicates where the log beging print inside SOURCE buffer.
+Argument CALL is the last call stack data from current execution point."
   (ignore-errors
     (make-text-button beg end 'follow-link t
                       'action (lambda (&rest _)
+                                ;; If source is string, then it has to be a file path
+                                (when (and (stringp source) (file-exists-p source))
+                                  (save-window-excursion  ; find it, and update source
+                                    (find-file source)
+                                    (setq source (current-buffer))))
+                                ;; Display the source buffer and it's position
                                 (if (not (buffer-live-p source))
                                     (user-error "Buffer no longer exists: %s" source)
                                   (switch-to-buffer-other-window source)
                                   (goto-char pt))))))
 
+(defun logms--find-source (call)
+  "Return the source information by CALL."
+  (let* ((source (current-buffer)) (pt (point))
+         (frame (car call)) (fnc (nth 1 frame))
+         (backstrace (cdr call))
+         (old-buf-lst (buffer-list)))
+    (when (symbolp fnc)  ; If not symbol, it's evaluate from buffer
+      (save-window-excursion
+        ;; This return nil if success, so we use `unless' instead of `when'
+        (unless (ignore-errors (find-function fnc))
+          ;; Update source information
+          (setq source (buffer-file-name)
+                pt (logms--find-logms-point backstrace (point)))
+          ;; Kill if it wasn't opened
+          (unless (= (length old-buf-lst) (length (buffer-list)))
+            (kill-buffer (current-buffer))))))
+    (cons source pt)))
+
 ;;;###autoload
 (defun logms (fmt &rest args)
   "Debug message like function `message' with same argument FMT and ARGS."
   (if logms-show
-      (let* ((name (buffer-name))
-             (source (current-buffer)) (pt (point))
+      (let* ((call (logms--last-call-stack-backtrace))
+             (info (logms--find-source call))
+             (source (car info)) (pt (cdr info))
+             (name (if (stringp source) (f-filename source) (buffer-name source)))
              (display (format "%s:%s:%s" name (line-number-at-pos pt) (current-column)))
              (display-len (length display))
              (beg (logms--next-msg-point)))
         (apply 'message (concat "%s " fmt) display args)
         (logms-with-messages-buffer
-          (unless (logms--make-button beg (+ beg display-len) source pt)
+          (unless (logms--make-button beg (+ beg display-len) source pt call)
             (setq beg (save-excursion
                         (goto-char beg)
                         (when (= (line-beginning-position) (point-max))
                           (forward-line -1))
                         (line-beginning-position)))
-            (logms--make-button beg (+ beg display-len) source pt))))
+            (logms--make-button beg (+ beg display-len) source pt call))))
     (apply 'message fmt args)))
 
 (provide 'logms)
