@@ -153,9 +153,9 @@ See function `logms--find-source' description for argument ARGS."
           ;; FIXME: If user has same log string in same level then this
           ;; will gave them the same result
           (setq found t)))
-      (goto-char searching))
+      (when searching (goto-char searching)))
     ;; Go back to the start of the symbol so it looks nicer
-    (re-search-backward logms--search-context start t)
+    (when found (re-search-backward logms--search-context start t))
     (point)))
 
 (defun logms--make-button (beg end source pt)
