@@ -126,8 +126,7 @@ It returns cons cell from by (current frame . backtrace)."
             index (1+ index))
       (push frame backtrace)
       (when evald (setq break t)))
-    ;; Remove eval buffer frame
-    (unless (= 0 (length eval-buffer-list))
+    (unless (symbolp (backtrace-frame-fun frame))
       (pop backtrace))
     ;; FRAME is the up one level call stack. BACKTRACE is used to compare
     ;; the frame level.
@@ -154,6 +153,7 @@ See function `logms--find-source' description for argument ARGS."
       (logms--log "0: %s" (point))
       (unless (logms--inside-comment-or-string-p)  ; comment or string?
         (setq nest-level (logms--nest-level-at-point))
+        (jcs-log-list backtrace)
         (logms--log "1: %s %s %s" level nest-level (point))
         (when (= level nest-level)  ; compare frame level
           ;; To get the true arguments, it stores inside the first item
