@@ -131,7 +131,7 @@ Argument START to prevent search from the beginning of the file.
 
 See function `logms--find-source' description for argument ARGS."
   ;; BACKTRACE will always return a list with minimum length of 1
-  (let ((level (1- (length backtrace))) frame-args
+  (let ((level (1- (length backtrace))) nest-level frame-args
         (end (save-excursion (forward-sexp) (point))) found (searching t)
         key val (count 0))
     (while (not found)
@@ -141,13 +141,14 @@ See function `logms--find-source' description for argument ARGS."
         (setq searching (re-search-forward logms--search-context end t)))
       (forward-char -1)  ; escape from string character
       (unless (logms--inside-comment-or-string-p)  ; comment or string?
-        (when (= level (logms--nest-level-at-point))  ; compare frame level
+        (setq nest-level (logms--nest-level-at-point))
+        (when (or (= level nest-level) (= nest-level 0))  ; compare frame level
           ;; To get the true arguments, it stores inside the first item
           ;; of BACKTRACE frames
           (setq frame-args (backtrace-frame-args (nth 0 backtrace)))
           (when (equal args frame-args)  ; compare arguments
-            (setq key (cons args level) val (ht-get logms--log-map key))
-            (setq count (1+ count))
+            (setq key (cons args level) val (ht-get logms--log-map key)
+                  count (1+ count))
             (when (or (null val) (< val count))
               (setq found t)
               (ht-set logms--log-map key count)))))
@@ -181,29 +182,28 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
 Argument ARGS is a list with format and printing arguments to compare and
 to define the unique log."
   (save-excursion
-    (let* ((source (current-buffer))
-           (pt (save-excursion (search-backward "(logms" nil t) (point)))
+    (let* ((source (current-buffer)) (pt (point))
            (line (line-number-at-pos pt))
            (column (current-column))
            (frame (car call)) (fnc (backtrace-frame-fun frame))
            (backtrace (cdr call))
            (old-buf-lst (buffer-list))
            find-function-after-hook found)
-      (when (symbolp fnc)  ; If not symbol, it's evaluate from buffer
-        (save-window-excursion
+      (save-window-excursion
+        (when (symbolp fnc)  ; If not symbol, it's evaluate from buffer
           (add-hook 'find-function-after-hook (lambda () (setq found t)))
           (let ((message-log-max nil) (inhibit-message t))
-            (ignore-errors (find-function fnc)))
-          ;; This return nil if success, so we use `unless' instead of `when'
-          (when found
-            ;; Update source information
-            (setq source (buffer-file-name)
-                  pt (logms--find-logms-point backtrace (point) args)
-                  line (line-number-at-pos (point))
-                  column (current-column))
-            ;; Kill if it wasn't opened
-            (unless (= (length old-buf-lst) (length (buffer-list)))
-              (kill-buffer (current-buffer))))))
+            (ignore-errors (find-function fnc))))
+        (if found
+            (setq source (buffer-file-name))  ; Update source information
+          (backward-sexp)))
+      (setq pt (logms--find-logms-point backtrace (point) args)
+            line (line-number-at-pos (point))
+            column (current-column))
+      (when found
+        ;; Kill if it wasn't opened
+        (unless (= (length old-buf-lst) (length (buffer-list)))
+          (kill-buffer (current-buffer))))
       (list source pt line column))))
 
 ;;;###autoload
