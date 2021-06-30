@@ -7,7 +7,7 @@
 ;; Description: See where the message came from
 ;; Keyword:
 ;; Version: 0.2.0
-;; Package-Requires: ((emacs "24.4") (s "1.9.0"))
+;; Package-Requires: ((emacs "24.4") (s "1.9.0") (ht "2.3"))
 ;; URL: https://github.com/jcs-elpa/logms
 
 ;; This file is NOT part of GNU Emacs.
@@ -34,6 +34,7 @@
 
 (require 'button)
 (require 's)
+(require 'ht)
 
 (defgroup logms nil
   "See where the message came from."
@@ -48,6 +49,12 @@
 
 (defconst logms--search-context "(logms[ \t\"]*"
   "Regular expression to search for logms calls.")
+
+(defvar logms--log-map (ht-create)
+  "Record the log situation between from last to current command.
+
+This resolved printing the same log in same frame level by acutally counting
+the program execution.")
 
 ;;
 ;; (@* "Util" )
@@ -106,6 +113,10 @@
       (setq index (1+ index)))
     same))
 
+(defun logms--inside-comment-or-string-p ()
+  "Return non-nil if it's inside comment or string."
+  (or  (nth 4 (syntax-ppss)) (nth 8 (syntax-ppss))))
+
 ;;
 ;; (@* "Core" )
 ;;
@@ -142,18 +153,26 @@ Argument BACKSTRACE is used to find the accurate position of the message.
 
 See function `logms--find-source' description for argument ARGS."
   (let ((level (length backstrace)) parsed-args
-        (end (save-excursion (forward-sexp) (point))) found (searching t))
+        (end (save-excursion (forward-sexp) (point))) found (searching t)
+        key val (count 0))
     (when (= level 0) (setq level 1))
-    (while (and (not found) searching)
+    (while (not found)
       (setq searching (re-search-forward logms--search-context end t))
-      (re-search-backward "(" start t)
-      (when (= level (logms--nest-level-at-point))
-        (setq parsed-args (logms--return-args-at-point))
-        (when (logms--compare-list args parsed-args)
-          ;; FIXME: If user has same log string in same level then this
-          ;; will gave them the same result
-          (setq found t)))
-      (when searching (goto-char searching)))
+      (unless searching    ; If search failed, start from the beginning, this
+        (goto-char start)  ; occures when inside a loop
+        (setq searching (re-search-forward logms--search-context end t)))
+      (search-backward "(logms" start t)
+      (unless (logms--inside-comment-or-string-p)  ; comment or string?
+        (when (= level (logms--nest-level-at-point))  ; compare frame level
+          (setq parsed-args (logms--return-args-at-point))
+          (when (logms--compare-list args parsed-args)  ; compare arguments
+            (setq key (cons args level) val (ht-get logms--log-map key))
+            (setq count (1+ count))
+            (when (or (null val) (< val count))
+              (setq found t)
+              (ht-set logms--log-map key count)))))
+      ;; Revert last search point
+      (goto-char searching))
     ;; Go back to the start of the symbol so it looks nicer
     (when found (re-search-backward logms--search-context start t))
     (point)))
@@ -209,24 +228,30 @@ to define the unique log."
 ;;;###autoload
 (defun logms (fmt &rest args)
   "Debug message like function `message' with same argument FMT and ARGS."
-  (if logms-show
-      (let* ((call (logms--last-call-stack-backtrace))
-             (info (logms--find-source call (append (list fmt) args)))
-             (source (nth 0 info)) (pt (nth 1 info)) (line (nth 2 info)) (column (nth 3 info))
-             (name (if (stringp source) (f-filename source) (buffer-name source)))
-             (display (format "%s:%s:%s" name line column))
-             (display-len (length display))
-             (beg (logms--next-msg-point)))
-        (apply 'message (concat "%s " fmt) display args)
-        (logms-with-messages-buffer
-          (unless (logms--make-button beg (+ beg display-len) source pt)
-            (setq beg (save-excursion
-                        (goto-char beg)
-                        (when (= (line-beginning-position) (point-max))
-                          (forward-line -1))
-                        (line-beginning-position)))
-            (logms--make-button beg (+ beg display-len) source pt))))
-    (apply 'message fmt args)))
+  (if (not logms-show) (apply 'message fmt args)
+    (add-hook 'post-command-hook #'logms--post-command)
+    (let* ((call (logms--last-call-stack-backtrace))
+           (info (logms--find-source call (append (list fmt) args)))
+           (source (nth 0 info)) (pt (nth 1 info)) (line (nth 2 info)) (column (nth 3 info))
+           (name (if (stringp source) (f-filename source) (buffer-name source)))
+           (display (format "%s:%s:%s" name line column))
+           (display-len (length display))
+           (beg (logms--next-msg-point)))
+      (apply 'message (concat "%s " fmt) display args)
+      (logms-with-messages-buffer
+        (unless (logms--make-button beg (+ beg display-len) source pt)
+          (setq beg (save-excursion
+                      (goto-char beg)
+                      (when (= (line-beginning-position) (point-max))
+                        (forward-line -1))
+                      (line-beginning-position)))
+          (logms--make-button beg (+ beg display-len) source pt))))))
+
+(defun logms--post-command ()
+  "Post command hook."
+  (ht-clear logms--log-map)  ; clear it once after each command's execution
+  ;; Remove hook, so we don't waste performance
+  (remove-hook 'post-command-hook #'logms--post-command))
 
 (provide 'logms)
 ;;; logms.el ends here
