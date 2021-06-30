@@ -1,4 +1,4 @@
-;;; logms-test.el --- liquidmetal tests      -*- lexical-binding: t; -*-
+;;; logms-test.el --- logms tests      -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2021  Jen-Chieh Shen
 
@@ -20,22 +20,22 @@
 
 ;;; Commentary:
 
-;; Tests for liquidmetal algorithm outcomes.
+;; Tests for logms
 
 ;;; Code:
 
 (require 'logms)
+(require 'ert)
+(require 'debug)
 
-(defun logms-test-1 ()
-  (logms "logms-test-1"))
+(ert-deftest logms-test-1 ()
+  (should (logms "logms-test-1")))
 
-(logms-test-1)
-
-(when (logms "hello"))
-(progn (logms "hello"))
-(if nil (progn) (logms "hello"))
-(if nil (progn) (progn (logms "hello")))
-(logms "hello")
+;;(when (logms "hello"))
+;;(progn (logms "hello"))
+;;(if nil (progn) (logms "hello"))
+;;(if nil (progn) (progn (logms "hello")))
+;;(logms "hello")
 
 (provide 'logms-test)
 ;;; logms-test.el ends here
