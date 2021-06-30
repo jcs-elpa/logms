@@ -183,6 +183,11 @@ See function `logms--find-source' description for argument ARGS."
       (unless (logms--inside-comment-or-string-p)  ; comment or string?
         (setq nest-level (logms--nest-level-at-point))
         (logms--log "1: %s %s %s" level nest-level (point))
+        ;; FIXME: The level comparison is not accurate but sufficient.
+        ;;
+        ;; The issue is backtrace frame does not take `progn' into an account
+        ;; but `logms--nest-level-at-point' does take this into account (since
+        ;; we are just only calculating the nesting level).
         (when (= level nest-level)  ; compare frame level
           ;; To get the true arguments, it stores inside the first item
           ;; of BACKTRACE frames
