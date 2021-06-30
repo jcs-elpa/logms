@@ -166,6 +166,7 @@ See function `logms--find-source' description for argument ARGS."
       (setq searching (re-search-forward logms--search-context end t))
       ;; If search failed, start from the beginning, this
       (unless searching
+        ;; After search a round, if not found then it's missing
         (unless found (setq missing t))
         (goto-char start)  ; occures when inside a loop
         (setq searching (re-search-forward logms--search-context end t)))
@@ -211,6 +212,23 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
                                   (switch-to-buffer-other-window source)
                                   (goto-char pt))))))
 
+(defun logms--guess-buffer (caller)
+  "Return guessed buffer and it's point."
+  (let (guessed-buffer point)
+    (cl-some (lambda (buf)
+               (with-current-buffer buf
+                 (save-excursion
+                   (goto-char (point-min))
+                   (setq point (search-forward (symbol-name caller) nil t))
+                   (when point
+                     (goto-char point)
+                     (search-backward "(" nil t)
+                     (setq guessed-buffer buf
+                           point (point)))))
+               guessed-buffer)
+             logms--eval-history)
+    (cons guessed-buffer point)))
+
 (defun logms--find-source (call args)
   "Return the source information by CALL.
 
@@ -224,7 +242,7 @@ to define the unique log."
            (backtrace (cdr call))
            (old-buf-lst (buffer-list))
            find-function-after-hook found
-           guess-point)
+           guessed-info guessed-buffer guessed-point)
       (save-window-excursion
         (when (symbolp caller)  ; If not symbol, it's evaluate from buffer
           (add-hook 'find-function-after-hook (lambda () (setq found t)))
@@ -237,18 +255,19 @@ to define the unique log."
           (setq logms--eval-history (append logms--eval-history eval-buffer-list))
           (logms--clean-eval-history)
 
+          ;; guess from evaluate buffer history
           (if (and logms-guess (symbolp caller))
-              (progn
-                (setq guess-point
-                      (save-excursion (goto-char (point-min))
-                                      (search-forward (symbol-name caller) nil t)))
-                (when guess-point
-                  (goto-char guess-point)
-                  (search-backward "(" nil t)))
+              (setq guessed-info (logms--guess-buffer caller)
+                    guessed-buffer (car guessed-info)
+                    guessed-point (cdr guessed-info))
             (backward-sexp))))
-      (setq pt (logms--find-logms-point backtrace (point) args)
-            line (line-number-at-pos (point))
-            column (current-column))
+
+      (setq source (or guessed-buffer source))
+
+      (with-current-buffer source
+        (setq pt (logms--find-logms-point backtrace (or guessed-point (point)) args)
+              line (line-number-at-pos (point))
+              column (current-column)))
       (when found
         ;; Kill if it wasn't opened
         (unless (= (length old-buf-lst) (length (buffer-list)))
