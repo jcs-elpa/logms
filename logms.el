@@ -220,7 +220,7 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
                                   (goto-char pt))))))
 
 (defun logms--guess-buffer (caller)
-  "Return guessed buffer and it's point."
+  "Return guessed buffer and it's point from CALLER."
   (let (guessed-buffer point)
     (cl-some (lambda (buf)
                (with-current-buffer buf
@@ -251,11 +251,13 @@ to define the unique log."
            find-function-after-hook found
            guessed-info guessed-buffer guessed-point
            (c-inter (eq caller this-command)))
+
       (save-window-excursion
         (when (symbolp caller)  ; If not symbol, it's evaluate from buffer
           (add-hook 'find-function-after-hook (lambda () (setq found t)))
           (let ((message-log-max nil) (inhibit-message t))
             (ignore-errors (find-function caller))))
+
         (if found
             (setq source (buffer-file-name))  ; Update source information
 
@@ -271,12 +273,14 @@ to define the unique log."
 
       (setq source (or guessed-buffer source))
 
-      (with-current-buffer source
+      (with-current-buffer (if found (current-buffer) source)
         (setq pt (logms--find-logms-point backtrace (or guessed-point (point)) args)
               line (line-number-at-pos (point))
               column (current-column)))
+
       (when (and c-inter (equal pt 'missing))
         (user-error "Source missing, caller: %s" caller))
+
       (when found
         ;; Kill if it wasn't opened
         (unless (= (length old-buf-lst) (length (buffer-list)))
