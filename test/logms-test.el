@@ -32,17 +32,26 @@
   "Calling it from a function."
   (logms msg))
 
-(ert-deftest logms-test-1 ()
+(ert-deftest logms-test-plain ()
   (should (null (logms "logms-test-1"))))
 
-(ert-deftest logms-test-2 ()
-  (should (null (lambda () (logms "logms-test-1")))))
+(ert-deftest logms-test-nested ()
+  (should (null (logms-call "logms-test-1"))))
 
-;;(when (logms "hello"))
-;;(progn (logms "hello"))
-;;(if nil (progn) (logms "hello"))
-;;(if nil (progn) (progn (logms "hello")))
-;;(logms "hello")
+(ert-deftest logms-test-when ()
+  (should (null (when t (logms "logms-test-1")))))
+
+(ert-deftest logms-test-progn ()
+  (should (null (progn (logms "logms-test-1")))))
+
+(ert-deftest logms-test-if ()
+  (should (null (if t (logms "logms-test-1")))))
+
+(ert-deftest logms-test-if-else ()
+  (should (null (if ni (progn) (logms "logms-test-1")))))
+
+(ert-deftest logms-test-if-else-progn ()
+  (should (null (if ni (progn) (progn (logms "logms-test-1"))))))
 
 (provide 'logms-test)
 ;;; logms-test.el ends here
