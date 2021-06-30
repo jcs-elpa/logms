@@ -29,7 +29,7 @@
 (require 'debug)
 
 (ert-deftest logms-test-1 ()
-  (should (logms "logms-test-1")))
+  (should (null (logms "logms-test-1"))))
 
 ;;(when (logms "hello"))
 ;;(progn (logms "hello"))
