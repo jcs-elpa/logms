@@ -154,7 +154,7 @@ See function `logms--find-source' description for argument ARGS."
       ;; Revert last search point
       (goto-char searching))
     ;; Go back to the start of the symbol so it looks nicer
-    (when found (re-search-backward logms--search-context start t))
+    (when found (search-backward "(logms" start t))
     (point)))
 
 (defun logms--make-button (beg end source pt)
@@ -181,7 +181,8 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
 Argument ARGS is a list with format and printing arguments to compare and
 to define the unique log."
   (save-excursion
-    (let* ((source (current-buffer)) (pt (point))
+    (let* ((source (current-buffer))
+           (pt (save-excursion (search-backward "(logms" nil t) (point)))
            (line (line-number-at-pos pt))
            (column (current-column))
            (frame (car call)) (fnc (backtrace-frame-fun frame))
