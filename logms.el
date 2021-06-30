@@ -153,7 +153,6 @@ Argument START to prevent search from the beginning of the file.
 Argument BACKSTRACE is used to find the accurate position of the message.
 
 See function `logms--find-source' description for argument ARGS."
-  (ignore-errors (jcs-log-list backstrace))
   (let ((level (length backstrace)) parsed-args
         (end (save-excursion (forward-sexp) (point))) found (searching t)
         key val (count 0))
