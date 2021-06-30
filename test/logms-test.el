@@ -48,10 +48,10 @@
   (should (null (if t (logms "logms-test-1")))))
 
 (ert-deftest logms-test-if-else ()
-  (should (null (if ni (progn) (logms "logms-test-1")))))
+  (should (null (if nil (progn) (logms "logms-test-1")))))
 
 (ert-deftest logms-test-if-else-progn ()
-  (should (null (if ni (progn) (progn (logms "logms-test-1"))))))
+  (should (null (if nil (progn) (progn (logms "logms-test-1"))))))
 
 (provide 'logms-test)
 ;;; logms-test.el ends here

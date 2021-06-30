@@ -147,6 +147,7 @@ See function `logms--find-source' description for argument ARGS."
           ;; of BACKTRACE frames
           (setq frame-args (backtrace-frame-args (nth 0 backtrace)))
           (when (equal args frame-args)  ; compare arguments
+            ;; NOTE: LEVEL is inaccurate, NEST-LEVEL should be correct
             (setq key (cons args nest-level) val (ht-get logms--log-map key)
                   count (1+ count))
             (when (or (null val) (< val count))
