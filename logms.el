@@ -114,6 +114,23 @@ the program execution.")
         (right (logms--nest-level-in-region (point) (point-max))))
     (/ (+ left right) 2)))
 
+(defun logms--callers-at-point (start)
+  "Return a list of callers at point."
+  (let ((level (logms--nest-level-at-point)) match callers parent-level)
+    (while (re-search-backward "([ ]*\\([a-zA-Z0-9-]+\\)[ \t\r\n]+" start t)
+      (setq match (match-string 1)
+            parent-level (logms--nest-level-at-point))
+      (when (< parent-level level)
+        (setq level parent-level)
+        (push match callers)))
+    callers))
+
+(defun logms--frame-level-at-point (start)
+  "Return the caller level to START."
+  (let ((callers (logms--callers-at-point start)))
+    (setq callers (cl-remove-if (lambda (caller) (string= caller "progn")) callers))
+    (length callers)))
+
 ;;
 ;; (@* "Core" )
 ;;
@@ -152,6 +169,9 @@ It returns cons cell from by (current frame . backtrace)."
       (when evald (setq break t)))
     (unless (symbolp (backtrace-frame-fun frame))
       (pop backtrace))
+    (setq backtrace
+          (cl-remove-if (lambda (f) (memq (backtrace-frame-fun f) '(progn)))
+                        backtrace))
     ;; FRAME is the up one level call stack. BACKTRACE is used to compare
     ;; the frame level.
     (cons frame (reverse backtrace))))
@@ -164,7 +184,7 @@ Argument START to prevent search from the beginning of the file.
 
 See function `logms--find-source' description for argument ARGS."
   ;; BACKTRACE will always return a list with minimum length of 1
-  (let ((level (1- (length backtrace))) nest-level frame-args
+  (let ((level (1- (length backtrace))) frame-level frame-args
         (end (or (ignore-errors (save-excursion (forward-sexp) (point)))
                  (point-max)))
         found (searching t)
@@ -181,21 +201,21 @@ See function `logms--find-source' description for argument ARGS."
       (logms--log "\f")
       (logms--log "0: %s %s" (point) end)
       (unless (logms--inside-comment-or-string-p)  ; comment or string?
-        (setq nest-level (logms--nest-level-at-point))
-        (logms--log "1: %s %s %s" level nest-level (point))
+        (setq frame-level (logms--frame-level-at-point start))
+        (logms--log "1: %s %s %s" level frame-level (point))
         ;; FIXME: The level comparison is not accurate but sufficient.
         ;;
         ;; The issue is backtrace frame does not take `progn' into an account
         ;; but `logms--nest-level-at-point' does take this into account (since
         ;; we are just only calculating the nesting level).
-        (when (= level nest-level)  ; compare frame level
+        (when (= level frame-level)  ; compare frame level
           ;; To get the true arguments, it stores inside the first item
           ;; of BACKTRACE frames
           (setq frame-args (backtrace-frame-args (nth 0 backtrace)))
           (logms--log "2: %s %s" args frame-args)
           (when (equal args frame-args)  ; compare arguments
-            ;; NOTE: LEVEL is inaccurate, NEST-LEVEL should be correct
-            (setq key (cons args nest-level) val (ht-get logms--log-map key)
+            ;; NOTE: LEVEL is inaccurate, FRAME-LEVEL should be correct
+            (setq key (cons args frame-level) val (ht-get logms--log-map key)
                   count (1+ count))
             (when (or (null val) (< val count))
               (setq found t)
