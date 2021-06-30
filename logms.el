@@ -181,28 +181,29 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
 
 Argument ARGS is a list with format and printing arguments to compare and
 to define the unique log."
-  (let* ((source (current-buffer)) (pt (point))
-         (line (line-number-at-pos pt))
-         (column (current-column))
-         (frame (car call)) (fnc (nth 1 frame))
-         (backstrace (cdr call))
-         (old-buf-lst (buffer-list))
-         find-function-after-hook found)
-    (when (symbolp fnc)  ; If not symbol, it's evaluate from buffer
-      (save-window-excursion
-        (add-hook 'find-function-after-hook (lambda () (setq found t)))
-        (ignore-errors (find-function fnc))
-        ;; This return nil if success, so we use `unless' instead of `when'
-        (when found
-          ;; Update source information
-          (setq source (current-buffer)
-                pt (logms--find-logms-point backstrace (point) args)
-                line (line-number-at-pos (point))
-                column (current-column))
-          ;; Kill if it wasn't opened
-          (unless (= (length old-buf-lst) (length (buffer-list)))
-            (kill-buffer (current-buffer))))))
-    (list source pt line column)))
+  (save-excursion
+    (let* ((source (current-buffer)) (pt (point))
+           (line (line-number-at-pos pt))
+           (column (current-column))
+           (frame (car call)) (fnc (nth 1 frame))
+           (backstrace (cdr call))
+           (old-buf-lst (buffer-list))
+           find-function-after-hook found)
+      (when (symbolp fnc)  ; If not symbol, it's evaluate from buffer
+        (save-window-excursion
+          (add-hook 'find-function-after-hook (lambda () (setq found t)))
+          (ignore-errors (find-function fnc))
+          ;; This return nil if success, so we use `unless' instead of `when'
+          (when found
+            ;; Update source information
+            (setq source (current-buffer)
+                  pt (logms--find-logms-point backstrace (point) args)
+                  line (line-number-at-pos (point))
+                  column (current-column))
+            ;; Kill if it wasn't opened
+            (unless (= (length old-buf-lst) (length (buffer-list)))
+              (kill-buffer (current-buffer))))))
+      (list source pt line column))))
 
 ;;;###autoload
 (defun logms (fmt &rest args)
