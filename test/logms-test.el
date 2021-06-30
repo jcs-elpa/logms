@@ -33,25 +33,25 @@
   (logms msg))
 
 (ert-deftest logms-test-plain ()
-  (should (null (logms "logms-test-1"))))
+  (should (null (logms "logms-test-plain"))))
 
 (ert-deftest logms-test-nested ()
-  (should (null (logms-call "logms-test-1"))))
+  (should (null (logms-call "logms-test-nested"))))
 
 (ert-deftest logms-test-when ()
-  (should (null (when t (logms "logms-test-1")))))
+  (should (null (when t (logms "logms-test-when")))))
 
 (ert-deftest logms-test-progn ()
-  (should (null (progn (logms "logms-test-1")))))
+  (should (null (progn (logms "logms-test-progn")))))
 
 (ert-deftest logms-test-if ()
-  (should (null (if t (logms "logms-test-1")))))
+  (should (null (if t (logms "logms-test-if")))))
 
 (ert-deftest logms-test-if-else ()
-  (should (null (if nil (progn) (logms "logms-test-1")))))
+  (should (null (if nil (progn) (logms "logms-test-if-else")))))
 
 (ert-deftest logms-test-if-else-progn ()
-  (should (null (if nil (progn) (progn (logms "logms-test-1"))))))
+  (should (null (if nil (progn) (progn (logms "logms-test-if-else-progn"))))))
 
 (provide 'logms-test)
 ;;; logms-test.el ends here
