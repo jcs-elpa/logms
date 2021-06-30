@@ -123,10 +123,9 @@ It returns cons cell from by (current frame . backtrace)."
     ;; the frame level.
     (cons frame (reverse backtrace))))
 
-(defun logms--find-logms-point (frame backtrace start args)
+(defun logms--find-logms-point (backtrace start args)
   "Move to the source point.
 
-Argument FRAME is the deepest nearest frame.
 Argument BACKTRACE is used to find the accurate position of the message.
 Argument START to prevent search from the beginning of the file.
 
@@ -198,7 +197,7 @@ to define the unique log."
           (when found
             ;; Update source information
             (setq source (buffer-file-name)
-                  pt (logms--find-logms-point frame backtrace (point) args)
+                  pt (logms--find-logms-point backtrace (point) args)
                   line (line-number-at-pos (point))
                   column (current-column))
             ;; Kill if it wasn't opened
