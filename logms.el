@@ -75,6 +75,9 @@ the program execution.")
 (defvar logms--show-log nil
   "Show the debug message from this package.")
 
+(defvar logms--ignore-rule '("progn")
+  "List of token that are being ignore by Emacs' backtrace.")
+
 ;;
 ;; (@* "Util" )
 ;;
@@ -128,7 +131,7 @@ the program execution.")
 (defun logms--frame-level-at-point (start)
   "Return the caller level to START."
   (let ((callers (logms--callers-at-point start)))
-    (setq callers (cl-remove-if (lambda (caller) (string= caller "progn")) callers))
+    (setq callers (cl-remove-if (lambda (caller) (member caller logms--ignore-rule)) callers))
     (length callers)))
 
 ;;
@@ -170,7 +173,10 @@ It returns cons cell from by (current frame . backtrace)."
     (unless (symbolp (backtrace-frame-fun frame))
       (pop backtrace))
     (setq backtrace
-          (cl-remove-if (lambda (f) (memq (backtrace-frame-fun f) '(progn)))
+          (cl-remove-if (lambda (f)
+                          (let ((caller (backtrace-frame-fun f)))
+                            (and (symbolp caller)
+                                 (member (symbol-name caller) logms--ignore-rule))))
                         backtrace))
     ;; FRAME is the up one level call stack. BACKTRACE is used to compare
     ;; the frame level.
