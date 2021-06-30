@@ -118,7 +118,7 @@ the program execution.")
     (/ (+ left right) 2)))
 
 (defun logms--callers-at-point (start)
-  "Return a list of callers at point."
+  "Return a list of callers at point to START."
   (let ((level (logms--nest-level-at-point)) match callers parent-level)
     (save-excursion
       (while (re-search-backward "([ ]*\\([a-zA-Z0-9-]+\\)[ \t\r\n]+" start t)
@@ -174,11 +174,6 @@ the program execution.")
         (cl-remove-if (lambda (buf) (or (not (buffer-live-p buf))
                                         (with-current-buffer buf (buffer-file-name))))
                       logms--eval-history)))
-
-(defun logms--record-eval-history ()
-  "Record history of evaluate buffer."
-  (setq logms--eval-history (append logms--eval-history eval-buffer-list))
-  (logms--clean-eval-history))
 
 (defun logms--next-msg-point ()
   "Return max point in *Messages* buffer."
@@ -320,9 +315,6 @@ to define the unique log."
         (if found
             (setq source (buffer-file-name))  ; Update source information
 
-          ;; Record the evaluate history
-          (logms--record-eval-history)
-
           ;; guess from evaluate buffer history
           (if (and logms-guess (symbolp caller))
               (setq guessed-info (logms--guess-buffer caller)
@@ -376,6 +368,14 @@ to define the unique log."
   (ht-clear logms--log-map)  ; clear it once after each command's execution
   ;; Remove hook, so we don't waste performance
   (remove-hook 'post-command-hook #'logms--post-command))
+
+(defun logms--eval (&rest _)
+  "Save evaluated buffer as history."
+  (push (current-buffer) logms--eval-history)
+  (logms--clean-eval-history))
+
+(advice-add 'eval-buffer :before #'logms--eval)
+(advice-add 'eval-region :before #'logms--eval)
 
 (provide 'logms)
 ;;; logms.el ends here
