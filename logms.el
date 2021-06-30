@@ -119,7 +119,8 @@ It returns cons cell from by (current frame . backtrace)."
             index (1+ index))
       (push frame backtrace)
       (when evald (setq break t)))
-    ;; FRAME is the up one level call stack.
+    ;; FRAME is the up one level call stack. BACKTRACE is used to compare
+    ;; the frame level.
     (cons frame (reverse backtrace))))
 
 (defun logms--find-logms-point (frame backtrace start args)
@@ -142,6 +143,8 @@ See function `logms--find-source' description for argument ARGS."
       (forward-char -1)  ; escape from string character
       (unless (logms--inside-comment-or-string-p)  ; comment or string?
         (when (= level (logms--nest-level-at-point))  ; compare frame level
+          ;; To get the true arguments, it stores inside the first item
+          ;; of BACKTRACE frames
           (setq frame-args (backtrace-frame-args (nth 0 backtrace)))
           (when (equal args frame-args)  ; compare arguments
             (setq key (cons args level) val (ht-get logms--log-map key))
