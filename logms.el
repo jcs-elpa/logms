@@ -61,9 +61,16 @@
 This resolved printing the same log in same frame level by acutally counting
 the program execution.")
 
+(defvar logms--show-log nil
+  "Show the debug message from this package.")
+
 ;;
 ;; (@* "Util" )
 ;;
+
+(defun logms--log (fmt &rest args)
+  "Debug message like function `message' with same argument FMT and ARGS."
+  (when logms--show-log (apply 'message fmt args)))
 
 (defun logms--inside-comment-or-string-p ()
   "Return non-nil if it's inside comment or string."
@@ -94,7 +101,7 @@ the program execution.")
   "Return a integer indicates the nested level from current point."
   (let ((left (logms--nest-level-in-region (point-min) (point)))
         (right (logms--nest-level-in-region (point) (point-max))))
-    (1- (/ (+ left right) 2))))
+    (/ (+ left right) 2)))
 
 ;;
 ;; (@* "Core" )
@@ -119,6 +126,9 @@ It returns cons cell from by (current frame . backtrace)."
             index (1+ index))
       (push frame backtrace)
       (when evald (setq break t)))
+    ;; Remove eval buffer frame
+    (unless (= 0 (length eval-buffer-list))
+      (pop backtrace))
     ;; FRAME is the up one level call stack. BACKTRACE is used to compare
     ;; the frame level.
     (cons frame (reverse backtrace))))
@@ -139,13 +149,17 @@ See function `logms--find-source' description for argument ARGS."
       (unless searching    ; If search failed, start from the beginning, this
         (goto-char start)  ; occures when inside a loop
         (setq searching (re-search-forward logms--search-context end t)))
-      (forward-char -1)  ; escape from string character
+      (search-backward "(logms" start t)
+      (logms--log "\f")
+      (logms--log "0: %s" (point))
       (unless (logms--inside-comment-or-string-p)  ; comment or string?
         (setq nest-level (logms--nest-level-at-point))
-        (when (or (= level nest-level) (= nest-level 0))  ; compare frame level
+        (logms--log "1: %s %s %s" level nest-level (point))
+        (when (= level nest-level)  ; compare frame level
           ;; To get the true arguments, it stores inside the first item
           ;; of BACKTRACE frames
           (setq frame-args (backtrace-frame-args (nth 0 backtrace)))
+          (logms--log "2: %s %s" args frame-args)
           (when (equal args frame-args)  ; compare arguments
             ;; NOTE: LEVEL is inaccurate, NEST-LEVEL should be correct
             (setq key (cons args nest-level) val (ht-get logms--log-map key)
@@ -154,7 +168,7 @@ See function `logms--find-source' description for argument ARGS."
               (setq found t)
               (ht-set logms--log-map key count)))))
       ;; Revert last search point
-      (goto-char searching))
+      (when searching (goto-char searching)))
     ;; Go back to the start of the symbol so it looks nicer
     (when found (search-backward "(logms" start t))
     (point)))
