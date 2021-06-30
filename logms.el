@@ -120,12 +120,13 @@ the program execution.")
 (defun logms--callers-at-point (start)
   "Return a list of callers at point."
   (let ((level (logms--nest-level-at-point)) match callers parent-level)
-    (while (re-search-backward "([ ]*\\([a-zA-Z0-9-]+\\)[ \t\r\n]+" start t)
-      (setq match (match-string 1)
-            parent-level (logms--nest-level-at-point))
-      (when (< parent-level level)
-        (setq level parent-level)
-        (push match callers)))
+    (save-excursion
+      (while (re-search-backward "([ ]*\\([a-zA-Z0-9-]+\\)[ \t\r\n]+" start t)
+        (setq match (match-string 1)
+              parent-level (logms--nest-level-at-point))
+        (when (< parent-level level)
+          (setq level parent-level)
+          (push match callers))))
     callers))
 
 (defun logms--frame-level-at-point (start)
@@ -133,6 +134,34 @@ the program execution.")
   (let ((callers (logms--callers-at-point start)))
     (setq callers (cl-remove-if (lambda (caller) (member caller logms--ignore-rule)) callers))
     (length callers)))
+
+(defun logms--return-args-at-point ()
+  "Return the full argument from point."
+  (let ((beg (point)) content symbol)
+    (save-excursion
+      (forward-sexp)
+      (setq content (buffer-substring beg (point))))
+    (unless (string-match-p "\"" content) (setq symbol t))
+    (if symbol symbol
+      (setq content (s-replace "(" "" content)
+            content (s-replace ")" "" content)
+            content (s-replace-regexp "logms[ ]*" "" content))
+      (split-string content "\"" t))))
+
+(defun logms--compare-list (lst1 lst2)
+  "Return non-nil if LST1 is identical with LST2."
+  (let ((index 0) (len1 (length lst1)) (len2 (length lst2)) (same t) break
+        item1 item2)
+    (unless (= len1 len2) (setq same nil))
+    (while (and same (not break) (< index len1))
+      (setq item1 (nth index lst1) item2 (nth index lst2)
+            item1 (format "%s" item1) item2 (format "%s" item2)
+            ;; Trim the argument string should be fine since we are comparing
+            ;; arguments and not the string itself!
+            item1 (string-trim item1) item2 (string-trim item2))
+      (unless (string= item1 item2) (setq same nil break t))
+      (setq index (1+ index)))
+    same))
 
 ;;
 ;; (@* "Core" )
@@ -190,7 +219,7 @@ Argument START to prevent search from the beginning of the file.
 
 See function `logms--find-source' description for argument ARGS."
   ;; BACKTRACE will always return a list with minimum length of 1
-  (let ((level (1- (length backtrace))) frame-level frame-args
+  (let ((level (1- (length backtrace))) frame-level parsed-args
         (end (or (ignore-errors (save-excursion (forward-sexp) (point)))
                  (point-max)))
         found (searching t)
@@ -215,11 +244,10 @@ See function `logms--find-source' description for argument ARGS."
         ;; but `logms--nest-level-at-point' does take this into account (since
         ;; we are just only calculating the nesting level).
         (when (= level frame-level)  ; compare frame level
-          ;; To get the true arguments, it stores inside the first item
-          ;; of BACKTRACE frames
-          (setq frame-args (backtrace-frame-args (nth 0 backtrace)))
-          (logms--log "2: %s %s" args frame-args)
-          (when (equal args frame-args)  ; compare arguments
+          (setq parsed-args (logms--return-args-at-point))
+          (logms--log "2: %s %s" args parsed-args)
+          (when (or (eq parsed-args t)  ; PARSED-ARGS return t if symbol
+                    (logms--compare-list args parsed-args))  ; compare arguments
             ;; NOTE: LEVEL is inaccurate, FRAME-LEVEL should be correct
             (setq key (cons args frame-level) val (ht-get logms--log-map key)
                   count (1+ count))
@@ -300,24 +328,25 @@ to define the unique log."
               (setq guessed-info (logms--guess-buffer caller)
                     guessed-buffer (car guessed-info)
                     guessed-point (cdr guessed-info))
-            (backward-sexp))))
+            (backward-sexp)))
 
-      (setq source (or guessed-buffer source))
+        (setq source (or guessed-buffer source))
 
-      (with-current-buffer (if found (current-buffer) source)
-        (setq start (point))
-        (setq pt (logms--find-logms-point backtrace (or guessed-point start) args)
-              line (line-number-at-pos (point))
-              column (current-column)))
+        (with-current-buffer (if found (current-buffer) source)
+          (setq start (point))
+          (setq pt (logms--find-logms-point backtrace (or guessed-point start) args)
+                line (line-number-at-pos (point))
+                column (current-column)))
 
-      (when (equal pt 'missing)
-        (setq pt start)  ; revert
-        (when c-inter (user-error "Source missing, caller: %s" caller)))
+        (when (equal pt 'missing)
+          (setq pt start)  ; revert
+          (when c-inter (user-error "Source missing, caller: %s" caller)))
 
-      (when found
-        ;; Kill if it wasn't opened
-        (unless (= (length old-buf-lst) (length (buffer-list)))
-          (kill-buffer (current-buffer))))
+        (when found
+          ;; Kill if it wasn't opened
+          (unless (= (length old-buf-lst) (length (buffer-list)))
+            (kill-buffer (current-buffer)))))
+
       (list source pt line column))))
 
 ;;;###autoload
