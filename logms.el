@@ -85,7 +85,7 @@ the program execution.")
   "Return a integer indicates the nested level from current point."
   (let ((left (logms--nest-level-in-region (point-min) (point)))
         (right (logms--nest-level-in-region (point) (point-max))))
-    (/ (+ left right) 2)))
+    (1- (/ (+ left right) 2))))
 
 (defun logms--return-args-at-point ()
   "Return the full argument from point."
@@ -152,10 +152,10 @@ Argument START to prevent search from the beginning of the file.
 Argument BACKSTRACE is used to find the accurate position of the message.
 
 See function `logms--find-source' description for argument ARGS."
+  (ignore-errors (jcs-log-list backstrace))
   (let ((level (length backstrace)) parsed-args
         (end (save-excursion (forward-sexp) (point))) found (searching t)
         key val (count 0))
-    (when (= level 0) (setq level 1))
     (while (not found)
       (setq searching (re-search-forward logms--search-context end t))
       (unless searching    ; If search failed, start from the beginning, this
