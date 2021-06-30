@@ -189,10 +189,11 @@ to define the unique log."
          (old-buf-lst (buffer-list)))
     (when (symbolp fnc)  ; If not symbol, it's evaluate from buffer
       (save-window-excursion
+        (ignore-errors (find-function fnc))
         ;; This return nil if success, so we use `unless' instead of `when'
-        (unless (ignore-errors (find-function fnc))
+        (unless (eq source (current-buffer))
           ;; Update source information
-          (setq source (buffer-file-name)
+          (setq source (or (buffer-file-name) (buffer-name))
                 pt (logms--find-logms-point backstrace (point) args)
                 line (line-number-at-pos (point))
                 column (current-column))
