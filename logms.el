@@ -192,7 +192,8 @@ to define the unique log."
       (when (symbolp fnc)  ; If not symbol, it's evaluate from buffer
         (save-window-excursion
           (add-hook 'find-function-after-hook (lambda () (setq found t)))
-          (ignore-errors (find-function fnc))
+          (let ((message-log-max nil) (inhibit-message t))
+            (ignore-errors (find-function fnc)))
           ;; This return nil if success, so we use `unless' instead of `when'
           (when found
             ;; Update source information
