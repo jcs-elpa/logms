@@ -37,6 +37,7 @@
 (require 'find-func)
 (require 'subr-x)
 
+(require 'cl-lib)
 (require 'f)
 (require 's)
 (require 'ht)
@@ -51,6 +52,16 @@
   "Enable to show the button infront of the log message."
   :type 'boolean
   :group 'logms)
+
+(defcustom logms-guess t
+  "If non-nil, try to guess the declaration from eval history."
+  :type 'boolean
+  :group 'logms)
+
+(defvar logms--eval-history nil
+  "Records of all evaluate buffers.
+
+If the eval buffer exists, then it will not be on this list.")
 
 (defconst logms--search-context "(logms[ \t\"]*"
   "Regular expression to search for logms calls.")
@@ -107,6 +118,14 @@ the program execution.")
 ;; (@* "Core" )
 ;;
 
+(defun logms--clean-eval-history ()
+  "Clean up evaluate history."
+  (delete-dups logms--eval-history)
+  (setq logms--eval-history
+        (cl-remove-if (lambda (buf) (or (not (buffer-live-p buf))
+                                        (with-current-buffer buf (buffer-file-name))))
+                      logms--eval-history)))
+
 (defun logms--next-msg-point ()
   "Return max point in *Messages* buffer."
   (logms-with-messages-buffer (point-max)))
@@ -142,18 +161,19 @@ See function `logms--find-source' description for argument ARGS."
   ;; BACKTRACE will always return a list with minimum length of 1
   (let ((level (1- (length backtrace))) nest-level frame-args
         (end (save-excursion (forward-sexp) (point))) found (searching t)
-        key val (count 0))
-    (while (not found)
+        key val (count 0) missing)
+    (while (and (not found) (not missing))
       (setq searching (re-search-forward logms--search-context end t))
-      (unless searching    ; If search failed, start from the beginning, this
+      ;; If search failed, start from the beginning, this
+      (unless searching
+        (unless found (setq missing t))
         (goto-char start)  ; occures when inside a loop
         (setq searching (re-search-forward logms--search-context end t)))
       (search-backward "(logms" start t)
       (logms--log "\f")
-      (logms--log "0: %s" (point))
+      (logms--log "0: %s %s" (point) end)
       (unless (logms--inside-comment-or-string-p)  ; comment or string?
         (setq nest-level (logms--nest-level-at-point))
-        (jcs-log-list backtrace)
         (logms--log "1: %s %s %s" level nest-level (point))
         (when (= level nest-level)  ; compare frame level
           ;; To get the true arguments, it stores inside the first item
@@ -171,7 +191,7 @@ See function `logms--find-source' description for argument ARGS."
       (when searching (goto-char searching)))
     ;; Go back to the start of the symbol so it looks nicer
     (when found (search-backward "(logms" start t))
-    (point)))
+    (if missing start (point))))
 
 (defun logms--make-button (beg end source pt)
   "Make a button from BEG to END.
@@ -200,18 +220,32 @@ to define the unique log."
     (let* ((source (current-buffer)) (pt (point))
            (line (line-number-at-pos pt))
            (column (current-column))
-           (frame (car call)) (fnc (backtrace-frame-fun frame))
+           (frame (car call)) (caller (backtrace-frame-fun frame))
            (backtrace (cdr call))
            (old-buf-lst (buffer-list))
-           find-function-after-hook found)
+           find-function-after-hook found
+           guess-point)
       (save-window-excursion
-        (when (symbolp fnc)  ; If not symbol, it's evaluate from buffer
+        (when (symbolp caller)  ; If not symbol, it's evaluate from buffer
           (add-hook 'find-function-after-hook (lambda () (setq found t)))
           (let ((message-log-max nil) (inhibit-message t))
-            (ignore-errors (find-function fnc))))
+            (ignore-errors (find-function caller))))
         (if found
             (setq source (buffer-file-name))  ; Update source information
-          (backward-sexp)))
+
+          ;; Record the evaluate history
+          (setq logms--eval-history (append logms--eval-history eval-buffer-list))
+          (logms--clean-eval-history)
+
+          (if (and logms-guess (symbolp caller))
+              (progn
+                (setq guess-point
+                      (save-excursion (goto-char (point-min))
+                                      (search-forward (symbol-name caller) nil t)))
+                (when guess-point
+                  (goto-char guess-point)
+                  (search-backward "(" nil t)))
+            (backward-sexp))))
       (setq pt (logms--find-logms-point backtrace (point) args)
             line (line-number-at-pos (point))
             column (current-column))
