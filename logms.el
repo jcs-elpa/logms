@@ -32,6 +32,7 @@
 
 ;;; Code:
 
+(require 'backtrace)
 (require 'button)
 (require 'find-func)
 (require 'subr-x)
@@ -95,32 +96,6 @@ the program execution.")
         (right (logms--nest-level-in-region (point) (point-max))))
     (1- (/ (+ left right) 2))))
 
-(defun logms--return-args-at-point ()
-  "Return the full argument from point."
-  (let ((beg (point)) content)
-    (save-excursion
-      (forward-sexp)
-      (setq content (buffer-substring beg (point))))
-    (setq content (s-replace "(" "" content)
-          content (s-replace ")" "" content)
-          content (s-replace-regexp "logms[ ]*" "" content))
-    (split-string content "\"" t)))
-
-(defun logms--compare-list (lst1 lst2)
-  "Return non-nil if LST1 is identical with LST2."
-  (let ((index 0) (len1 (length lst1)) (len2 (length lst2)) (same t) break
-        item1 item2)
-    (unless (= len1 len2) (setq same nil))
-    (while (and same (not break) (< index len1))
-      (setq item1 (nth index lst1) item2 (nth index lst2)
-            item1 (format "%s" item1) item2 (format "%s" item2)
-            ;; Trim the argument string should be fine since we are comparing
-            ;; arguments and not the string itself!
-            item1 (string-trim item1) item2 (string-trim item2))
-      (unless (string= item1 item2) (setq same nil break t))
-      (setq index (1+ index)))
-    same))
-
 ;;
 ;; (@* "Core" )
 ;;
@@ -135,26 +110,22 @@ the program execution.")
 By using this function to find the where the log came from.
 
 It returns cons cell from by (current frame . backtrace)."
-  (jcs-log-list (backtrace-get-frames 'logms))
-  (let (backtrace (index 0) frame break exec meet flag)
+  (let ((frames (backtrace-get-frames 'logms)) backtrace
+        (index 1) break frame evald)
     (while (not break)
-      (setq frame (backtrace-frame index)
-            flag (nth 0 frame) exec (nth 1 frame)
+      (setq frame (nth index frames)
+            evald (backtrace-frame-evald frame)
             index (1+ index))
-      ;; Find the next call stack, if flag returns non-symbol then
-      ;; it is call from the beginning of the call stack
-      ;;
-      ;; Otherwise, we push all local frames
-      (when meet (if flag (setq break t) (push frame backtrace)))
-      ;; First we find the logms call stack
-      (when (eq exec 'logms) (setq meet t)))
+      (push frame backtrace)
+      (when evald (setq break t)))
     (cons frame (reverse backtrace))))
 
-(defun logms--find-logms-point (backtrace start args)
+(defun logms--find-logms-point (frame backtrace start args)
   "Move to the source point.
 
-Argument START to prevent search from the beginning of the file.
+Argument FRAME is the deepest nearest frame.
 Argument BACKTRACE is used to find the accurate position of the message.
+Argument START to prevent search from the beginning of the file.
 
 See function `logms--find-source' description for argument ARGS."
   (let ((level (length backtrace)) parsed-args
@@ -169,9 +140,8 @@ See function `logms--find-source' description for argument ARGS."
       (forward-char -1)  ; escape from string character
       (unless (logms--inside-comment-or-string-p)  ; comment or string?
         (when (= level (logms--nest-level-at-point))  ; compare frame level
-          (setq parsed-args (logms--return-args-at-point))
-          (jcs-print args parsed-args)
-          (when (logms--compare-list args parsed-args)  ; compare arguments
+          (setq parsed-args (backtrace-frame-args frame))
+          (when (equal args parsed-args)  ; compare arguments
             (setq key (cons args level) val (ht-get logms--log-map key))
             (setq count (1+ count))
             (when (or (null val) (< val count))
@@ -210,7 +180,7 @@ to define the unique log."
     (let* ((source (current-buffer)) (pt (point))
            (line (line-number-at-pos pt))
            (column (current-column))
-           (frame (car call)) (fnc (nth 1 frame))
+           (frame (car call)) (fnc (backtrace-frame-fun frame))
            (backtrace (cdr call))
            (old-buf-lst (buffer-list))
            find-function-after-hook found)
@@ -223,7 +193,7 @@ to define the unique log."
           (when found
             ;; Update source information
             (setq source (current-buffer)
-                  pt (logms--find-logms-point backtrace (point) args)
+                  pt (logms--find-logms-point frame backtrace (point) args)
                   line (line-number-at-pos (point))
                   column (current-column))
             ;; Kill if it wasn't opened
