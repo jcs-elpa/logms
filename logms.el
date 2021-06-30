@@ -64,6 +64,10 @@ the program execution.")
 ;; (@* "Util" )
 ;;
 
+(defun logms--inside-comment-or-string-p ()
+  "Return non-nil if it's inside comment or string."
+  (or (nth 4 (syntax-ppss)) (nth 8 (syntax-ppss))))
+
 (defmacro logms-with-messages-buffer (&rest body)
   "Execute BODY within the *Messages* buffer."
   (declare (indent 0) (debug t))
@@ -117,10 +121,6 @@ the program execution.")
       (setq index (1+ index)))
     same))
 
-(defun logms--inside-comment-or-string-p ()
-  "Return non-nil if it's inside comment or string."
-  (or  (nth 4 (syntax-ppss)) (nth 8 (syntax-ppss))))
-
 ;;
 ;; (@* "Core" )
 ;;
@@ -135,6 +135,7 @@ the program execution.")
 By using this function to find the where the log came from.
 
 It returns cons cell from by (current frame . backtrace)."
+  (jcs-log-list (backtrace-get-frames 'logms))
   (let (backtrace (index 0) frame break exec meet flag)
     (while (not break)
       (setq frame (backtrace-frame index)
@@ -149,25 +150,27 @@ It returns cons cell from by (current frame . backtrace)."
       (when (eq exec 'logms) (setq meet t)))
     (cons frame (reverse backtrace))))
 
-(defun logms--find-logms-point (backstrace start args)
+(defun logms--find-logms-point (backtrace start args)
   "Move to the source point.
 
 Argument START to prevent search from the beginning of the file.
-Argument BACKSTRACE is used to find the accurate position of the message.
+Argument BACKTRACE is used to find the accurate position of the message.
 
 See function `logms--find-source' description for argument ARGS."
-  (let ((level (length backstrace)) parsed-args
+  (let ((level (length backtrace)) parsed-args
         (end (save-excursion (forward-sexp) (point))) found (searching t)
         key val (count 0))
+    (when (= level 0) (setq level 1))
     (while (not found)
       (setq searching (re-search-forward logms--search-context end t))
       (unless searching    ; If search failed, start from the beginning, this
         (goto-char start)  ; occures when inside a loop
         (setq searching (re-search-forward logms--search-context end t)))
-      (search-backward "(logms" start t)
+      (forward-char -1)  ; escape from string character
       (unless (logms--inside-comment-or-string-p)  ; comment or string?
         (when (= level (logms--nest-level-at-point))  ; compare frame level
           (setq parsed-args (logms--return-args-at-point))
+          (jcs-print args parsed-args)
           (when (logms--compare-list args parsed-args)  ; compare arguments
             (setq key (cons args level) val (ht-get logms--log-map key))
             (setq count (1+ count))
@@ -208,7 +211,7 @@ to define the unique log."
            (line (line-number-at-pos pt))
            (column (current-column))
            (frame (car call)) (fnc (nth 1 frame))
-           (backstrace (cdr call))
+           (backtrace (cdr call))
            (old-buf-lst (buffer-list))
            find-function-after-hook found)
       (when (symbolp fnc)  ; If not symbol, it's evaluate from buffer
@@ -220,7 +223,7 @@ to define the unique log."
           (when found
             ;; Update source information
             (setq source (current-buffer)
-                  pt (logms--find-logms-point backstrace (point) args)
+                  pt (logms--find-logms-point backtrace (point) args)
                   line (line-number-at-pos (point))
                   column (current-column))
             ;; Kill if it wasn't opened

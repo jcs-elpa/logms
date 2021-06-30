@@ -28,8 +28,15 @@
 (require 'ert)
 (require 'debug)
 
+(defun logms-call (msg)
+  "Calling it from a function."
+  (logms msg))
+
 (ert-deftest logms-test-1 ()
   (should (null (logms "logms-test-1"))))
+
+(ert-deftest logms-test-2 ()
+  (should (null (lambda () (logms "logms-test-1")))))
 
 ;;(when (logms "hello"))
 ;;(progn (logms "hello"))
