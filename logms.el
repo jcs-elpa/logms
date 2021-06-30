@@ -250,7 +250,7 @@ to define the unique log."
            (old-buf-lst (buffer-list))
            find-function-after-hook found
            guessed-info guessed-buffer guessed-point
-           (c-inter (eq caller this-command)))
+           (c-inter (eq caller this-command)) start)
 
       (save-window-excursion
         (when (symbolp caller)  ; If not symbol, it's evaluate from buffer
@@ -274,12 +274,14 @@ to define the unique log."
       (setq source (or guessed-buffer source))
 
       (with-current-buffer (if found (current-buffer) source)
-        (setq pt (logms--find-logms-point backtrace (or guessed-point (point)) args)
+        (setq start (point))
+        (setq pt (logms--find-logms-point backtrace (or guessed-point start) args)
               line (line-number-at-pos (point))
               column (current-column)))
 
-      (when (and c-inter (equal pt 'missing))
-        (user-error "Source missing, caller: %s" caller))
+      (when (equal pt 'missing)
+        (setq pt start)  ; revert
+        (when c-inter (user-error "Source missing, caller: %s" caller)))
 
       (when found
         ;; Kill if it wasn't opened
