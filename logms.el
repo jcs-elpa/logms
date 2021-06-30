@@ -33,6 +33,7 @@
 ;;; Code:
 
 (require 'button)
+(require 'find-func)
 (require 's)
 (require 'ht)
 
