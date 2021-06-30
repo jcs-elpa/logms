@@ -7,7 +7,7 @@
 ;; Description: See where the message came from
 ;; Keyword:
 ;; Version: 0.2.0
-;; Package-Requires: ((emacs "24.4") (f "0.20.0") (s "1.9.0") (ht "2.3"))
+;; Package-Requires: ((emacs "27.1") (f "0.20.0") (s "1.9.0") (ht "2.3"))
 ;; URL: https://github.com/jcs-elpa/logms
 
 ;; This file is NOT part of GNU Emacs.
