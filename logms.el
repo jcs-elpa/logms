@@ -110,14 +110,16 @@ the program execution.")
 By using this function to find the where the log came from.
 
 It returns cons cell from by (current frame . backtrace)."
-  (let ((frames (backtrace-get-frames 'logms)) backtrace
-        (index 1) break frame evald)
+  (let* ((frames (backtrace-get-frames 'logms))
+         (backtrace (list (nth 0 frames)))  ; always has the base frame
+         (index 1) break frame evald)
     (while (not break)
       (setq frame (nth index frames)
             evald (backtrace-frame-evald frame)
             index (1+ index))
       (push frame backtrace)
       (when evald (setq break t)))
+    ;; FRAME is the up one level call stack.
     (cons frame (reverse backtrace))))
 
 (defun logms--find-logms-point (frame backtrace start args)
@@ -128,10 +130,10 @@ Argument BACKTRACE is used to find the accurate position of the message.
 Argument START to prevent search from the beginning of the file.
 
 See function `logms--find-source' description for argument ARGS."
-  (let ((level (length backtrace)) parsed-args
+  ;; BACKTRACE will always return a list with minimum length of 1
+  (let ((level (1- (length backtrace))) frame-args
         (end (save-excursion (forward-sexp) (point))) found (searching t)
         key val (count 0))
-    (when (= level 0) (setq level 1))
     (while (not found)
       (setq searching (re-search-forward logms--search-context end t))
       (unless searching    ; If search failed, start from the beginning, this
@@ -140,8 +142,8 @@ See function `logms--find-source' description for argument ARGS."
       (forward-char -1)  ; escape from string character
       (unless (logms--inside-comment-or-string-p)  ; comment or string?
         (when (= level (logms--nest-level-at-point))  ; compare frame level
-          (setq parsed-args (backtrace-frame-args frame))
-          (when (equal args parsed-args)  ; compare arguments
+          (setq frame-args (backtrace-frame-args (nth 0 backtrace)))
+          (when (equal args frame-args)  ; compare arguments
             (setq key (cons args level) val (ht-get logms--log-map key))
             (setq count (1+ count))
             (when (or (null val) (< val count))
@@ -192,7 +194,7 @@ to define the unique log."
           ;; This return nil if success, so we use `unless' instead of `when'
           (when found
             ;; Update source information
-            (setq source (current-buffer)
+            (setq source (buffer-file-name)
                   pt (logms--find-logms-point frame backtrace (point) args)
                   line (line-number-at-pos (point))
                   column (current-column))
