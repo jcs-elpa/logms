@@ -126,6 +126,11 @@ the program execution.")
                                         (with-current-buffer buf (buffer-file-name))))
                       logms--eval-history)))
 
+(defun logms--record-eval-history ()
+  "Record history of evaluate buffer."
+  (setq logms--eval-history (append logms--eval-history eval-buffer-list))
+  (logms--clean-eval-history))
+
 (defun logms--next-msg-point ()
   "Return max point in *Messages* buffer."
   (logms-with-messages-buffer (point-max)))
@@ -160,7 +165,9 @@ Argument START to prevent search from the beginning of the file.
 See function `logms--find-source' description for argument ARGS."
   ;; BACKTRACE will always return a list with minimum length of 1
   (let ((level (1- (length backtrace))) nest-level frame-args
-        (end (save-excursion (forward-sexp) (point))) found (searching t)
+        (end (or (ignore-errors (save-excursion (forward-sexp) (point)))
+                 (point-max)))
+        found (searching t)
         key val (count 0) missing)
     (while (and (not found) (not missing))
       (setq searching (re-search-forward logms--search-context end t))
@@ -192,7 +199,7 @@ See function `logms--find-source' description for argument ARGS."
       (when searching (goto-char searching)))
     ;; Go back to the start of the symbol so it looks nicer
     (when found (search-backward "(logms" start t))
-    (if missing start (point))))
+    (if missing 'missing (point))))
 
 (defun logms--make-button (beg end source pt)
   "Make a button from BEG to END.
@@ -242,7 +249,8 @@ to define the unique log."
            (backtrace (cdr call))
            (old-buf-lst (buffer-list))
            find-function-after-hook found
-           guessed-info guessed-buffer guessed-point)
+           guessed-info guessed-buffer guessed-point
+           (c-inter (eq caller this-command)))
       (save-window-excursion
         (when (symbolp caller)  ; If not symbol, it's evaluate from buffer
           (add-hook 'find-function-after-hook (lambda () (setq found t)))
@@ -252,8 +260,7 @@ to define the unique log."
             (setq source (buffer-file-name))  ; Update source information
 
           ;; Record the evaluate history
-          (setq logms--eval-history (append logms--eval-history eval-buffer-list))
-          (logms--clean-eval-history)
+          (logms--record-eval-history)
 
           ;; guess from evaluate buffer history
           (if (and logms-guess (symbolp caller))
@@ -268,6 +275,8 @@ to define the unique log."
         (setq pt (logms--find-logms-point backtrace (or guessed-point (point)) args)
               line (line-number-at-pos (point))
               column (current-column)))
+      (when (and c-inter (equal pt 'missing))
+        (user-error "Source missing, caller: %s" caller))
       (when found
         ;; Kill if it wasn't opened
         (unless (= (length old-buf-lst) (length (buffer-list)))
