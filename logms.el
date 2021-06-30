@@ -213,6 +213,7 @@ Argument BACKTRACE is used to find the accurate position of the message.
 Argument START to prevent search from the beginning of the file.
 
 See function `logms--find-source' description for argument ARGS."
+  (goto-char start)
   ;; BACKTRACE will always return a list with minimum length of 1
   (let ((level (1- (length backtrace))) frame-level parsed-args
         (end (or (ignore-errors (save-excursion (forward-sexp) (point)))
