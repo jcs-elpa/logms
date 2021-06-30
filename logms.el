@@ -186,14 +186,16 @@ to define the unique log."
          (column (current-column))
          (frame (car call)) (fnc (nth 1 frame))
          (backstrace (cdr call))
-         (old-buf-lst (buffer-list)))
+         (old-buf-lst (buffer-list))
+         find-function-after-hook found)
     (when (symbolp fnc)  ; If not symbol, it's evaluate from buffer
       (save-window-excursion
+        (add-hook 'find-function-after-hook (lambda () (setq found t)))
         (ignore-errors (find-function fnc))
         ;; This return nil if success, so we use `unless' instead of `when'
-        (unless (eq source (current-buffer))
+        (when found
           ;; Update source information
-          (setq source (or (buffer-file-name) (buffer-name))
+          (setq source (current-buffer)
                 pt (logms--find-logms-point backstrace (point) args)
                 line (line-number-at-pos (point))
                 column (current-column))
