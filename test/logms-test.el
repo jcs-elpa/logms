@@ -28,9 +28,9 @@
 (require 'ert)
 (require 'debug)
 
-(defun logms-call (msg)
+(defun logms-call (msg1)
   "Calling it from a function."
-  (logms msg))
+  (logms "%s" msg1))
 
 (ert-deftest logms-test-plain ()
   (should (null (logms "logms-test-plain"))))
