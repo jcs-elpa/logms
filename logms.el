@@ -137,14 +137,17 @@ the program execution.")
 
 (defun logms--return-args-at-point ()
   "Return the full argument from point."
-  (let ((beg (point)) content)
+  (let ((beg (point)) content args)
     (save-excursion
       (forward-sexp)
       (setq content (buffer-substring beg (point))))
     (setq content (s-replace "(" "" content)
           content (s-replace ")" "" content)
           content (s-replace-regexp "logms[ ]*" "" content))
-    (split-string content "\"" t)))
+    (setq args (split-string content "\"" t)
+          ;; Remove all empty strings
+          args (cl-remove-if (lambda (arg) (string-empty-p (string-trim arg))) args))
+    args))
 
 (defun logms--compare-args-string (lst1 lst2)
   "Compare arguments LST1 and LST2.
@@ -172,7 +175,7 @@ This is use to resolve when logms are pass in with variables."
       (dolist (arg args)
         (when (string-match-p (symbol-name name) arg)
           (setq match-count (1+ match-count)))))
-    ;; The match should be exactly the same of the lenght of locals
+    ;; The match should be exactly the same of the length of locals
     (= match-count locals-len)))
 
 ;;
@@ -222,7 +225,11 @@ It returns cons cell from by (current frame . backtrace)."
   "Move to the source point.
 
 Argument BACKTRACE is used to find the accurate position of the message.
-Argument START to prevent search from the beginning of the file."
+Argument START to prevent search from the beginning of the file.
+
+FRAME-ARGS is a list of cons cell represent variable names and values.  See
+function `backtrace-frame-locals' for more information since we are getting
+the data directly from it function."
   (goto-char start)
   ;; BACKTRACE will always return a list with minimum length of 1
   (let ((level (1- (length backtrace))) frame-level args parsed-args
