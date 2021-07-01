@@ -169,7 +169,7 @@ This is use to resolve when logms are pass in string with no variables."
   "Compare arguments ARGS and LOCALS.
 
 This is use to resolve when logms are pass in with variables."
-  (let ((index 0) name (match-count 0) (locals-len (length locals)))
+  (let (name (match-count 0) (locals-len (length locals)))
     (dolist (pair locals)
       (setq name (car pair))
       (dolist (arg args)
