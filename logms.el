@@ -168,12 +168,19 @@ This is use to resolve when logms are pass in string with no variables."
 (defun logms--compare-args-variable (args locals)
   "Compare arguments ARGS and LOCALS.
 
+Argument ARGS are parsed arguments from function `logms--return-args-at-point'.
+
+Argument LOCALS are locals from function `backtrace-frame-locals', see the
+function's description for more information.
+
 This is use to resolve when logms are pass in with variables."
   (let (name (match-count 0) (locals-len (length locals)))
     (dolist (pair locals)
       (setq name (car pair))
       (dolist (arg args)
-        (when (string-match-p (symbol-name name) arg)
+        ;; We are only comparing variable names and no values because another
+        ;; function `logms--compare-args-string' already done the task for us
+        (when (string= (symbol-name name) (string-trim arg))
           (setq match-count (1+ match-count)))))
     ;; The match should be exactly the same of the length of locals
     (= match-count locals-len)))
