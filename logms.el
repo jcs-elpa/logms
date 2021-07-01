@@ -83,7 +83,7 @@ the program execution.")
 ;;
 
 (defun logms--log (fmt &rest args)
-  "Debug message like function `message' with same argument FMT and ARGS."
+  "Debug message like function `message' with same arguments FMT and ARGS."
   (when logms--show-log (apply 'message fmt args)))
 
 (defun logms--inside-comment-or-string-p ()
@@ -118,7 +118,13 @@ the program execution.")
     (/ (+ left right) 2)))
 
 (defun logms--callers-at-point (start)
-  "Return a list of callers at point to START."
+  "Return a list of callers at point to START.
+
+For example,
+
+   (when t (prog (prog $))
+
+Above code should return a list '(when progn progn)."
   (let ((level (logms--nest-level-at-point)) match callers parent-level)
     (save-excursion
       (while (re-search-backward "([ ]*\\([a-zA-Z0-9-]+\\)[ \t\r\n]+" start t)
@@ -130,13 +136,19 @@ the program execution.")
     callers))
 
 (defun logms--frame-level-at-point (start)
-  "Return the caller level to START."
+  "Return the caller level to START.
+
+Callers are stack frames but limited with the rule `logms--ignore-rule'.
+
+See function `logms--callers-at-point' for example."
   (let ((callers (logms--callers-at-point start)))
     (setq callers (cl-remove-if (lambda (caller) (member caller logms--ignore-rule)) callers))
     (length callers)))
 
 (defun logms--return-args-at-point ()
-  "Return the full argument from point."
+  "Parse all arguments including variable names from point and return it.
+
+Notice this isn't an ideal solution, yet it's the best what I can do here."
   (let ((beg (point)) content args)
     (save-excursion
       (forward-sexp)
