@@ -137,31 +137,43 @@ the program execution.")
 
 (defun logms--return-args-at-point ()
   "Return the full argument from point."
-  (let ((beg (point)) content symbol)
+  (let ((beg (point)) content)
     (save-excursion
       (forward-sexp)
       (setq content (buffer-substring beg (point))))
-    (unless (string-match-p "\"" content) (setq symbol t))
-    (if symbol symbol
-      (setq content (s-replace "(" "" content)
-            content (s-replace ")" "" content)
-            content (s-replace-regexp "logms[ ]*" "" content))
-      (split-string content "\"" t))))
+    (setq content (s-replace "(" "" content)
+          content (s-replace ")" "" content)
+          content (s-replace-regexp "logms[ ]*" "" content))
+    (split-string content "\"" t)))
 
-(defun logms--compare-list (lst1 lst2)
-  "Return non-nil if LST1 is identical with LST2."
-  (let ((index 0) (len1 (length lst1)) (len2 (length lst2)) (same t) break
-        item1 item2)
+(defun logms--compare-args-string (lst1 lst2)
+  "Compare arguments LST1 and LST2.
+
+This is use to resolve when logms are pass in string with no variables."
+  (let ((same t) (index 0) (len1 (length lst1)) (len2 (length lst2)) item1 item2)
     (unless (= len1 len2) (setq same nil))
-    (while (and same (not break) (< index len1))
+    (while (and same (< index len1))
       (setq item1 (nth index lst1) item2 (nth index lst2)
             item1 (format "%s" item1) item2 (format "%s" item2)
             ;; Trim the argument string should be fine since we are comparing
             ;; arguments and not the string itself!
             item1 (string-trim item1) item2 (string-trim item2))
-      (unless (string= item1 item2) (setq same nil break t))
+      (unless (string= item1 item2) (setq same nil))
       (setq index (1+ index)))
     same))
+
+(defun logms--compare-args-variable (args locals)
+  "Compare arguments ARGS and LOCALS.
+
+This is use to resolve when logms are pass in with variables."
+  (let ((index 0) name (match-count 0) (locals-len (length locals)))
+    (dolist (pair locals)
+      (setq name (car pair))
+      (dolist (arg args)
+        (when (string-match-p (symbol-name name) arg)
+          (setq match-count (1+ match-count)))))
+    ;; The match should be exactly the same of the lenght of locals
+    (= match-count locals-len)))
 
 ;;
 ;; (@* "Core" )
@@ -206,16 +218,14 @@ It returns cons cell from by (current frame . backtrace)."
     ;; the frame level.
     (cons frame (reverse backtrace))))
 
-(defun logms--find-logms-point (backtrace start args)
+(defun logms--find-logms-point (backtrace start frame-args)
   "Move to the source point.
 
 Argument BACKTRACE is used to find the accurate position of the message.
-Argument START to prevent search from the beginning of the file.
-
-See function `logms--find-source' description for argument ARGS."
+Argument START to prevent search from the beginning of the file."
   (goto-char start)
   ;; BACKTRACE will always return a list with minimum length of 1
-  (let ((level (1- (length backtrace))) frame-level parsed-args
+  (let ((level (1- (length backtrace))) frame-level args parsed-args
         (end (or (ignore-errors (save-excursion (forward-sexp) (point)))
                  (point-max)))
         found (searching t)
@@ -240,12 +250,14 @@ See function `logms--find-source' description for argument ARGS."
         ;; but `logms--nest-level-at-point' does take this into account (since
         ;; we are just only calculating the nesting level).
         (when (= level frame-level)  ; compare frame level
-          (setq parsed-args (logms--return-args-at-point))
-          (logms--log "2: %s %s" args parsed-args)
-          (when (or (eq parsed-args t)  ; PARSED-ARGS return t if symbol
-                    (logms--compare-list args parsed-args))  ; compare arguments
+          (setq args (backtrace-frame-args (nth 0 backtrace))
+                parsed-args (logms--return-args-at-point))
+          (logms--log "2: %s | %s %s" parsed-args args frame-args)
+          (when (or (logms--compare-args-string parsed-args args)
+                    (logms--compare-args-variable parsed-args frame-args))  ; compare arguments
+            (logms--log "3: found")
             ;; NOTE: LEVEL is inaccurate, FRAME-LEVEL should be correct
-            (setq key (cons args frame-level) val (ht-get logms--log-map key)
+            (setq key (cons frame-args frame-level) val (ht-get logms--log-map key)
                   count (1+ count))
             (when (or (null val) (< val count))
               (setq found t)
@@ -291,11 +303,8 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
              logms--eval-history)
     (cons guessed-buffer point)))
 
-(defun logms--find-source (call args)
-  "Return the source information by CALL.
-
-Argument ARGS is a list with format and printing arguments to compare and
-to define the unique log."
+(defun logms--find-source (call)
+  "Return the source information by CALL."
   (save-excursion
     (let* ((source (current-buffer)) (pt (point))
            (line (line-number-at-pos pt))
@@ -326,13 +335,17 @@ to define the unique log."
         (setq source (or guessed-buffer source))
 
         (with-current-buffer (if found (current-buffer) source)
+          (goto-char (or guessed-point (point)))
           (setq start (point))
-          (setq pt (logms--find-logms-point backtrace (or guessed-point start) args)
+          (setq pt (logms--find-logms-point backtrace (point) (backtrace-frame-locals frame))
                 line (line-number-at-pos (point))
                 column (current-column)))
 
         (when (equal pt 'missing)
-          (setq pt start)  ; revert
+          (goto-char start)
+          (setq pt start  ; revert
+                line (line-number-at-pos (point))
+                column (current-column))
           (when c-inter (user-error "Source missing, caller: %s" caller)))
 
         (when found
@@ -348,7 +361,7 @@ to define the unique log."
   (if (not logms-show) (apply 'message fmt args)
     (add-hook 'post-command-hook #'logms--post-command)
     (let* ((call (logms--last-call-stack-backtrace))
-           (info (logms--find-source call (append (list fmt) args)))
+           (info (logms--find-source call))
            (source (nth 0 info)) (pt (nth 1 info)) (line (nth 2 info)) (column (nth 3 info))
            (name (if (stringp source) (f-filename source) (buffer-name source)))
            (display (format "%s:%s:%s" name line column))
