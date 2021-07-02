@@ -28,6 +28,7 @@
 (require 'ert)
 (require 'debug)
 
+;;
 ;; The test may be useless since using package `ert-runner', it will
 ;; always return the following message:
 ;;
