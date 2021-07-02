@@ -28,6 +28,15 @@
 (require 'ert)
 (require 'debug)
 
+;; The test may be useless since using package `ert-runner', it will
+;; always return the following message:
+;;
+;;   *temp*:1:0 logms-log-...
+;;
+;; But this test can still make sure all logms in any conditions can still
+;; be executed safely without any error.
+;;
+
 (defun logms-call (msg1)
   "Calling it from a function."
   (logms "%s" msg1))
