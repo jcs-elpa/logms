@@ -392,8 +392,8 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
            (name (if (stringp source) (f-filename source) (buffer-name source)))
            (display (format "%s:%s:%s" name line column))
            (display-len (length display))
-           (beg (logms--next-msg-point)))
-      (apply 'message (concat "%s " fmt) display args)
+           (beg (logms--next-msg-point)) result)
+      (setq result (apply 'message (concat "%s " fmt) display args))
       (logms-with-messages-buffer
         (unless (logms--make-button beg (+ beg display-len) source pt)
           (setq beg (save-excursion
@@ -401,7 +401,8 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
                       (when (= (line-beginning-position) (point-max))
                         (forward-line -1))
                       (line-beginning-position)))
-          (logms--make-button beg (+ beg display-len) source pt))))))
+          (logms--make-button beg (+ beg display-len) source pt)))
+      result)))
 
 (defun logms--post-command ()
   "Post command hook."
