@@ -410,13 +410,32 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
   ;; Remove hook, so we don't waste performance
   (remove-hook 'post-command-hook #'logms--post-command))
 
+;;
+;; (@* "Eval" )
+;;
+
 (defun logms--eval (&rest _)
   "Save evaluated buffer as history."
   (push (current-buffer) logms--eval-history)
   (logms--clean-eval-history))
 
-(advice-add 'eval-buffer :before #'logms--eval)
-(advice-add 'eval-region :before #'logms--eval)
+(defun logms--enable ()
+  "Enable function `logms-mode'."
+  (advice-add 'eval-buffer :before #'logms--eval)
+  (advice-add 'eval-region :before #'logms--eval))
+
+(defun logms--disable ()
+  "Disable function `logms-mode'."
+  (advice-remove 'eval-buffer #'logms--eval)
+  (advice-remove 'eval-region #'logms--eval))
+
+;;;###autoload
+(define-minor-mode logms-mode
+  "Minor mode for `logms'."
+  :global t
+  :require 'logms
+  :group 'logms
+  (if logms-mode (logms--enable) (logms--disable)))
 
 (provide 'logms)
 ;;; logms.el ends here
