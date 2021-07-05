@@ -2,7 +2,7 @@
 [![CI](https://github.com/jcs-elpa/logms/actions/workflows/test.yml/badge.svg)](https://github.com/jcs-elpa/logms/actions/workflows/test.yml)
 
 # logms
-> See where the message came from
+> Logging function whose output contains clickable links to context
 
 <p align="center">
   <img src="./etc/demo.gif"/>

@@ -1,10 +1,10 @@
-;;; logms.el --- See where the message came from  -*- lexical-binding: t; -*-
+;;; logms.el --- Logging function whose output contains clickable links to context  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2021  Shen, Jen-Chieh
 ;; Created date 2021-06-26 23:22:27
 
 ;; Author: Shen, Jen-Chieh <jcs090218@gmail.com>
-;; Description: See where the message came from
+;; Description: Logging function whose output contains clickable links to context
 ;; Keyword: debug log
 ;; Version: 0.3.0
 ;; Package-Requires: ((emacs "27.1") (f "0.20.0") (s "1.9.0") (ht "2.3"))
@@ -27,7 +27,7 @@
 
 ;;; Commentary:
 ;;
-;; See where the message came from.
+;; Logging function whose output contains clickable links to context.
 ;;
 
 ;;; Code:
