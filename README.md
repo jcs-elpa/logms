@@ -10,6 +10,14 @@
 
 ## Usage
 
+### :mag: `M-x logms-mode`
+
+Please start `M-x logms-mode` so you can get the correct output from evaluating
+buffer. If you do not evalute `logms` through `eval-buffer` or `eval-region`,
+you can ignore this step.
+
+### :mag: Quick example
+
 In `*scratch*` buffer,
 
 ```el
