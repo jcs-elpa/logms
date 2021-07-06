@@ -77,8 +77,7 @@ the program execution.")
 
 (defvar logms--ignore-rule
   '("progn"             ; This cause mismatch with nested level
-    "funcall" "apply"   ; Don't consume call frame count!
-    "timer-event-handler")
+    "funcall" "apply")  ; Don't consume call frame count!
   "List of token that are being ignore by Emacs' backtrace.")
 
 (defvar logms--ignore-call-frame
@@ -362,7 +361,8 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
                                 ;; Display the source buffer and it's position
                                 (if (not (buffer-live-p source))
                                     (user-error "Buffer no longer exists: %s" source)
-                                  (switch-to-buffer-other-window source)
+                                  (unless (equal source (current-buffer))
+                                    (switch-to-buffer-other-window source))
                                   (goto-char pt))))))
 
 (defun logms--guess-buffer (caller)
@@ -395,10 +395,12 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
            guessed-info guessed-buffer guessed-point
            (c-inter (eq caller this-command)) start)
 
-      (save-window-excursion
-        (when (eq caller 'timer-event-handler)
-          (user-error "[WARNING] Timer event are not allow to `logms`"))
+      (cond ((eq caller 'timer-event-handler)
+             (user-error "[WARNING] Timer event are not allow to `logms`"))
+            ((and (consp caller) (eq (car caller) 'lambda))
+             (user-error "[WARNING] Lambda is currently not supported to `logms`")))
 
+      (save-window-excursion
         ;; * If symbol, there is defined call stack we cal look for; unless
         ;; it's compiled and the source is from C code.
         ;;
