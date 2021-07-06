@@ -268,7 +268,7 @@ It returns cons cell from by (current frame . backtrace)."
 Argument START is the minimum boundary we can search through."
   (re-search-backward logms--search-context start t)  ; allow search for symbol '
   ;; Make sure we found the starting stack frame
-  (when (string= (string (char-after)) "'")
+  (when (equal (ignore-errors (string (char-after))) "'")
     (search-backward "(" nil t)))
 
 (defun logms--find-logms-point (backtrace start frame-args)
