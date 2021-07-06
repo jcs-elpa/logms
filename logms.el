@@ -58,8 +58,12 @@
 
 If the eval buffer exists, then it will not be on this list.")
 
-(defconst logms--search-context "[(']\\<\\(logms\\|funcall\\|apply\\)[ \t\"]*"
+(defconst logms--search-context
+  '("logms" "funcall" "apply" "run-with-idle-timer" "run-idle-timer")
   "Regular expression to search for logms calls.")
+
+(defvar logms--search-context-cache nil
+  "Cache for variable `logms--search-context', save some performance.")
 
 (defvar logms--log-map (ht-create)
   "Record the log situation between from last to current command.
@@ -72,8 +76,13 @@ the program execution.")
 
 (defvar logms--ignore-rule
   '("progn"             ; This cause mismatch with nested level
-    "funcall" "apply")  ; Don't consume call frame count!
+    "funcall" "apply"   ; Don't consume call frame count!
+    "timer-event-handler")
   "List of token that are being ignore by Emacs' backtrace.")
+
+(defvar logms--ignore-call-frame
+  '(funcall apply timer-event-handler)
+  "Rule we ignore from backtrace stack frame.")
 
 ;;
 ;; (@* "Util" )
@@ -92,6 +101,18 @@ the program execution.")
   (declare (indent 0) (debug t))
   `(with-current-buffer "*Messages*"
      (let (buffer-read-only) (progn ,@body))))
+
+(defun logms--form-search-context ()
+  "Form search context for list of `logms--search-context'."
+  (unless logms--search-context-cache
+    (let ((regex (nth 0 logms--search-context)) first)
+      (dolist (keyword logms--search-context)
+        (when first
+          (setq regex (concat regex "\\|" keyword)))
+        (setq first t))
+      ;; Update cache.
+      (setq logms--search-context-cache (format "[(']\\<\\(%s\\)[ \t\"]*" regex))))
+  logms--search-context-cache)
 
 (defun logms--count-symbols (symbol beg end)
   "Count the SYMBOL from region BEG to END."
@@ -240,16 +261,16 @@ This is use to resolve when logms are pass in with variables."
 By using this function to find the where the log came from.
 
 It returns cons cell from by (current frame . backtrace)."
-  (let* ((frames (backtrace-get-frames 'logms))
+  (let* ((frames (backtrace-get-frames 'logms)) (frames-len (length frames))
          (backtrace (list (nth 0 frames)))  ; always has the base frame
          (index 1) break frame evald fun)
-    (while (not break)
+    (while (and (not break) (< index frames-len))
       (setq frame (nth index frames)
             evald (backtrace-frame-evald frame)
             fun (backtrace-frame-fun frame)
             index (1+ index))
       (push frame backtrace)
-      (when (and evald (not (memq fun '(funcall apply))))
+      (when (and evald (not (memq fun logms--ignore-call-frame)))
         (setq break t)))
     (unless (symbolp fun) (pop backtrace))
     (setq backtrace
@@ -266,7 +287,7 @@ It returns cons cell from by (current frame . backtrace)."
   "Navigate to starting of the current call frame.
 
 Argument START is the minimum boundary we can search through."
-  (re-search-backward logms--search-context start t)  ; allow search for symbol '
+  (re-search-backward (logms--form-search-context) start t)  ; allow search for symbol '
   ;; Make sure we found the starting stack frame
   (when (equal (ignore-errors (string (char-after))) "'")
     (search-backward "(" nil t)))
@@ -288,13 +309,13 @@ the data directly from it function."
         found (searching t)
         key val (count 0) missing)
     (while (and (not found) (not missing))
-      (setq searching (re-search-forward logms--search-context end t))
+      (setq searching (re-search-forward (logms--form-search-context) end t))
       ;; If search failed, start from the beginning, this
       (unless searching
         ;; After search a round, if not found then it's missing
         (unless found (setq missing t))
         (goto-char start)  ; occures when inside a loop
-        (setq searching (re-search-forward logms--search-context end t)))
+        (setq searching (re-search-forward (logms--form-search-context) end t)))
       (logms--goto-starting-stack-frame start)
       (logms--log "\f")
       (logms--log "0: %s %s" (point) end)
@@ -382,7 +403,7 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
         ;; * Excluding `funcall` and `apply`, both functions are compiled hence
         ;; the source if from C code.  (See bullet Pt. 1)
         (when (and (symbolp caller)
-                   (not (memq caller '(funcall apply))))
+                   (not (memq caller logms--ignore-call-frame)))
           (add-hook 'find-function-after-hook (lambda () (setq found t)))
           (let ((message-log-max nil) (inhibit-message t))
             (ignore-errors (find-function caller))))
