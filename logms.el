@@ -48,11 +48,6 @@
   :group 'tool
   :link '(url-link :tag "Repository" "https://github.com/jcs-elpa/logms"))
 
-(defcustom logms-show t
-  "Enable to show the button infront of the log message."
-  :type 'boolean
-  :group 'logms)
-
 (defcustom logms-guess t
   "If non-nil, try to guess the declaration from eval history."
   :type 'boolean
@@ -196,6 +191,28 @@ This is use to resolve when logms are pass in with variables."
           (setq match-count (1+ match-count)))))
     ;; The match should be exactly the same of the length of locals
     (= match-count locals-len)))
+
+;;
+;; (@* "Mode" )
+;;
+
+(defun logms--enable ()
+  "Enable function `logms-mode'."
+  (advice-add 'eval-buffer :before #'logms--eval)
+  (advice-add 'eval-region :before #'logms--eval))
+
+(defun logms--disable ()
+  "Disable function `logms-mode'."
+  (advice-remove 'eval-buffer #'logms--eval)
+  (advice-remove 'eval-region #'logms--eval))
+
+;;;###autoload
+(define-minor-mode logms-mode
+  "Minor mode for `logms'."
+  :global t
+  :require 'logms
+  :group 'logms
+  (if logms-mode (logms--enable) (logms--disable)))
 
 ;;
 ;; (@* "Core" )
@@ -384,7 +401,7 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
 ;;;###autoload
 (defun logms (fmt &rest args)
   "Debug message like function `message' with same argument FMT and ARGS."
-  (if (not logms-show) (apply 'message fmt args)
+  (if (not logms-mode) (apply 'message fmt args)
     (add-hook 'post-command-hook #'logms--post-command)
     (let* ((call (logms--last-call-stack-backtrace))
            (info (logms--find-source call))
@@ -418,24 +435,6 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
   "Save evaluated buffer as history."
   (push (current-buffer) logms--eval-history)
   (logms--clean-eval-history))
-
-(defun logms--enable ()
-  "Enable function `logms-mode'."
-  (advice-add 'eval-buffer :before #'logms--eval)
-  (advice-add 'eval-region :before #'logms--eval))
-
-(defun logms--disable ()
-  "Disable function `logms-mode'."
-  (advice-remove 'eval-buffer #'logms--eval)
-  (advice-remove 'eval-region #'logms--eval))
-
-;;;###autoload
-(define-minor-mode logms-mode
-  "Minor mode for `logms'."
-  :global t
-  :require 'logms
-  :group 'logms
-  (if logms-mode (logms--enable) (logms--disable)))
 
 (provide 'logms)
 ;;; logms.el ends here
