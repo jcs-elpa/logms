@@ -58,7 +58,7 @@
 
 If the eval buffer exists, then it will not be on this list.")
 
-(defconst logms--search-context "[(']logms[ \t\"]*"
+(defconst logms--search-context "[(']\\<\\(logms\\|funcall\\|apply\\)[ \t\"]*"
   "Regular expression to search for logms calls.")
 
 (defvar logms--log-map (ht-create)
@@ -240,15 +240,16 @@ By using this function to find the where the log came from.
 It returns cons cell from by (current frame . backtrace)."
   (let* ((frames (backtrace-get-frames 'logms))
          (backtrace (list (nth 0 frames)))  ; always has the base frame
-         (index 1) break frame evald)
+         (index 1) break frame evald fun)
     (while (not break)
       (setq frame (nth index frames)
             evald (backtrace-frame-evald frame)
+            fun (backtrace-frame-fun frame)
             index (1+ index))
       (push frame backtrace)
-      (when evald (setq break t)))
-    (unless (symbolp (backtrace-frame-fun frame))
-      (pop backtrace))
+      (when (and evald (not (memq fun '(funcall apply))))
+        (setq break t)))
+    (unless (symbolp fun) (pop backtrace))
     (setq backtrace
           (cl-remove-if (lambda (f)
                           (let ((caller (backtrace-frame-fun f)))
@@ -263,7 +264,7 @@ It returns cons cell from by (current frame . backtrace)."
   "Navigate to starting of the current call frame.
 
 Argument START is the minimum boundary we can search through."
-  (re-search-backward "[(']logms" start t)  ; allow search for symbol '
+  (re-search-backward logms--search-context start t)  ; allow search for symbol '
   ;; Make sure we found the starting stack frame
   (when (string= (string (char-after)) "'")
     (search-backward "(" nil t)))
@@ -371,7 +372,15 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
            (c-inter (eq caller this-command)) start)
 
       (save-window-excursion
-        (when (symbolp caller)  ; If not symbol, it's evaluate somewhere in memory
+        ;; * If symbol, there is defined call stack we cal look for; unless
+        ;; it's compiled and the source is from C code.
+        ;;
+        ;; * If not symbol, it's evaluate somewhere in memory
+        ;;
+        ;; * Excluding `funcall` and `apply`, both functions are compiled hence
+        ;; the source if from C code.  (See bullet Pt. 1)
+        (when (and (symbolp caller)
+                   (not (memq caller '(funcall apply))))
           (add-hook 'find-function-after-hook (lambda () (setq found t)))
           (let ((message-log-max nil) (inhibit-message t))
             (ignore-errors (find-function caller))))
