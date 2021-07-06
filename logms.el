@@ -261,9 +261,9 @@ This is use to resolve when logms are pass in with variables."
 Note there is no way you can track timer event since you cannot track a
 delay function and expect to record states (window/frame/cursor, etc) that
 already happened."
-  (dolist (frame frames)
-    (when (equal (backtrace-frame-fun frame) 'timer-event-handler)
-      (user-error "[WARNING] Timer event are not allow to `logms`"))))
+  (cl-some (lambda (frame)
+             (equal (backtrace-frame-fun frame) 'timer-event-handler))
+           frames))
 
 (defun logms--last-call-stack-backtrace ()
   "Return the last stack frame right before of the logms function begin called.
@@ -274,7 +274,6 @@ It returns cons cell from by (current frame . backtrace)."
   (let* ((frames (backtrace-get-frames 'logms)) (frames-len (length frames))
          (backtrace (list (nth 0 frames)))  ; always has the base frame
          (index 1) break frame evald fun)
-    (logms--backtrace-timer-event frames)
     (while (and (not break) (< index frames-len))
       (setq frame (nth index frames)
             evald (backtrace-frame-evald frame)
@@ -290,6 +289,19 @@ It returns cons cell from by (current frame . backtrace)."
                             (and (symbolp caller)
                                  (member (symbol-name caller) logms--ignore-rule))))
                         backtrace))
+    (when (and (logms--backtrace-timer-event frames)  ; Is timer event?
+               (or
+                ;; If nearest frame is timer event, it has been called directly
+                ;; like the following
+                ;;
+                ;;   (run-with-timer 1 nil #'logms SOME-TEXT)
+                (and (symbolp fun) (eq fun 'timer-event-handler))
+                ;; If nearest frame is lambda, it has been called with lambda
+                ;; wrapper,
+                ;;
+                ;;   (run-with-timer 1 nil (lambda () (logms SOME-TEXT)))
+                (and (consp fun) (symbolp (car fun)) (eq (car fun) 'lambda))))
+      (user-error "[WARNING] Invalid timer event to `logms`, please define a valid source"))
     ;; FRAME is the up one level call stack. BACKTRACE is used to compare
     ;; the frame level.
     (cons frame (reverse backtrace))))
@@ -405,6 +417,8 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
            find-function-after-hook found
            guessed-info guessed-buffer guessed-point
            (c-inter (eq caller this-command)) start)
+
+      (jcs-print "caller" caller)
 
       (save-window-excursion
         ;; * If symbol, there is defined call stack we cal look for; unless
