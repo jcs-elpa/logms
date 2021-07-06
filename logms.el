@@ -1,10 +1,10 @@
-;;; logms.el --- Logging function whose output contains clickable links to context  -*- lexical-binding: t; -*-
+;;; logms.el --- Log message with clickable links to context  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2021  Shen, Jen-Chieh
 ;; Created date 2021-06-26 23:22:27
 
 ;; Author: Shen, Jen-Chieh <jcs090218@gmail.com>
-;; Description: Logging function whose output contains clickable links to context
+;; Description: Log message with clickable links to context
 ;; Keyword: debug log
 ;; Version: 0.3.0
 ;; Package-Requires: ((emacs "27.1") (f "0.20.0") (s "1.9.0") (ht "2.3"))
@@ -27,7 +27,7 @@
 
 ;;; Commentary:
 ;;
-;; Logging function whose output contains clickable links to context.
+;; Log message with clickable links to context.
 ;;
 
 ;;; Code:
@@ -43,7 +43,7 @@
 (require 'ht)
 
 (defgroup logms nil
-  "See where the message came from."
+  "Log message with clickable links to context."
   :prefix "logms-"
   :group 'tool
   :link '(url-link :tag "Repository" "https://github.com/jcs-elpa/logms"))
