@@ -59,7 +59,8 @@
 If the eval buffer exists, then it will not be on this list.")
 
 (defconst logms--search-context
-  '("logms" "funcall" "apply" "run-with-idle-timer" "run-idle-timer")
+  '("logms" "funcall" "apply"
+    "run-with-idle-timer" "run-idle-timer")
   "Regular expression to search for logms calls.")
 
 (defvar logms--search-context-cache nil
@@ -395,6 +396,9 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
            (c-inter (eq caller this-command)) start)
 
       (save-window-excursion
+        (when (eq caller 'timer-event-handler)
+          (user-error "[WARNING] Timer event are not allow to `logms`"))
+
         ;; * If symbol, there is defined call stack we cal look for; unless
         ;; it's compiled and the source is from C code.
         ;;
