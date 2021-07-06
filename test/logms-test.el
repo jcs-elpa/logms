@@ -28,6 +28,8 @@
 (require 'ert)
 (require 'debug)
 
+(logms-mode 1)
+
 ;;
 ;; The test may be useless since using package `ert-runner', it will
 ;; always return the following message:
