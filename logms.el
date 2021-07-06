@@ -58,7 +58,7 @@
 
 If the eval buffer exists, then it will not be on this list.")
 
-(defconst logms--search-context "(logms[ \t\"]*"
+(defconst logms--search-context "[(']logms[ \t\"]*"
   "Regular expression to search for logms calls.")
 
 (defvar logms--log-map (ht-create)
@@ -259,6 +259,15 @@ It returns cons cell from by (current frame . backtrace)."
     ;; the frame level.
     (cons frame (reverse backtrace))))
 
+(defun logms--goto-starting-stack-frame (start)
+  "Navigate to starting of the current call frame.
+
+Argument START is the minimum boundary we can search through."
+  (re-search-backward "[(']logms" start t)  ; allow search for symbol '
+  ;; Make sure we found the starting stack frame
+  (when (string= (string (char-after)) "'")
+    (search-backward "(" nil t)))
+
 (defun logms--find-logms-point (backtrace start frame-args)
   "Move to the source point.
 
@@ -283,7 +292,7 @@ the data directly from it function."
         (unless found (setq missing t))
         (goto-char start)  ; occures when inside a loop
         (setq searching (re-search-forward logms--search-context end t)))
-      (search-backward "(logms" start t)
+      (logms--goto-starting-stack-frame start)
       (logms--log "\f")
       (logms--log "0: %s %s" (point) end)
       (unless (logms--inside-comment-or-string-p)  ; comment or string?
@@ -310,7 +319,7 @@ the data directly from it function."
       ;; Revert last search point
       (when searching (goto-char searching)))
     ;; Go back to the start of the symbol so it looks nicer
-    (when found (search-backward "(logms" start t))
+    (when found (logms--goto-starting-stack-frame start))
     (if missing 'missing (point))))
 
 (defun logms--make-button (beg end source pt)
@@ -362,7 +371,7 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
            (c-inter (eq caller this-command)) start)
 
       (save-window-excursion
-        (when (symbolp caller)  ; If not symbol, it's evaluate from buffer
+        (when (symbolp caller)  ; If not symbol, it's evaluate somewhere in memory
           (add-hook 'find-function-after-hook (lambda () (setq found t)))
           (let ((message-log-max nil) (inhibit-message t))
             (ignore-errors (find-function caller))))
