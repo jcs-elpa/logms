@@ -70,7 +70,9 @@ the program execution.")
 (defvar logms--show-log nil
   "Show the debug message from this package.")
 
-(defvar logms--ignore-rule '("progn")
+(defvar logms--ignore-rule
+  '("progn"             ; This cause mismatch with nested level
+    "funcall" "apply")  ; Don't consume call frame count!
   "List of token that are being ignore by Emacs' backtrace.")
 
 ;;
