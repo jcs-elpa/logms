@@ -97,7 +97,9 @@ the program execution.")
     (save-excursion
       (goto-char beg)
       (while (search-forward symbol end t)
-        (setq count (1+ count))))
+        ;; Make sure symbols isn't in comment or string
+        (unless (logms--inside-comment-or-string-p)
+          (setq count (1+ count)))))
     count))
 
 (defun logms--nest-level-in-region (beg end)
