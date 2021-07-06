@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
 
+## 0.3.2 (Unreleased)
+> Released N/A
+
+* Allow definable function for timer event calls
+
 ## 0.3.1
 > Released Jul 06, 2021
 
