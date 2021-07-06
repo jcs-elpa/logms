@@ -418,8 +418,6 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
            guessed-info guessed-buffer guessed-point
            (c-inter (eq caller this-command)) start)
 
-      (jcs-print "caller" caller)
-
       (save-window-excursion
         ;; * If symbol, there is defined call stack we cal look for; unless
         ;; it's compiled and the source is from C code.
