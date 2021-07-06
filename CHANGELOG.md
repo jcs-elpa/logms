@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
 
+## 0.3.1
+> Released Jul 06, 2021
+
+* Add minor mode `logms-mode` to wrap advice functions
+* Remove variable `logms-show` due to the conflict to `logms-mode`
+* Fix summary, previous one is too long or and confusing
+* Fix miscalculation for symbol count in region, exclude `strings` and `comments`
+* Report warning when using `logms` in timer events
+
 ## 0.3.0
 > Released Jun 30, 2021
 
