@@ -1,4 +1,6 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![MELPA](https://melpa.org/packages/logms-badge.svg)](https://melpa.org/#/logms)
+[![MELPA Stable](https://stable.melpa.org/packages/logms-badge.svg)](https://stable.melpa.org/#/logms)
 [![CI](https://github.com/jcs-elpa/logms/actions/workflows/test.yml/badge.svg)](https://github.com/jcs-elpa/logms/actions/workflows/test.yml)
 
 # logms
