@@ -479,13 +479,13 @@ Argument PT indicates where the log beging print inside SOURCE buffer."
            (beg (logms--next-msg-point)) result)
       (setq result (apply 'message (concat "%s " fmt) display args))
       (logms-with-messages-buffer
-       (unless (logms--make-button beg (+ beg display-len) source pt)
-         (setq beg (save-excursion
-                     (goto-char beg)
-                     (when (= (line-beginning-position) (point-max))
-                       (forward-line -1))
-                     (line-beginning-position)))
-         (logms--make-button beg (+ beg display-len) source pt)))
+        (unless (logms--make-button beg (+ beg display-len) source pt)
+          (setq beg (save-excursion
+                      (goto-char beg)
+                      (when (= (line-beginning-position) (point-max))
+                        (forward-line -1))
+                      (line-beginning-position)))
+          (logms--make-button beg (+ beg display-len) source pt)))
       result)))
 
 (defun logms--post-command ()
