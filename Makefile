@@ -5,14 +5,16 @@ CASK ?= cask
 
 PKG-FILES := logms.el
 
-.PHONY: clean checkdoc lint unix-build unix-compile	unix-test
+TEST-FILES := $(shell ls test/logms-*.el)
 
-unix-ci: clean unix-build unix-compile unix-test
+.PHONY: clean checkdoc lint build compile unix-test
 
-unix-build:
+ci: clean build compile
+
+build:
 	$(CASK) install
 
-unix-compile:
+compile:
 	@echo "Compiling..."
 	@$(CASK) $(EMACS) -Q --batch \
 		-L . \
