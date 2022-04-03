@@ -1,6 +1,13 @@
 (source "melpa")
 
+(package "logms" "0.3.1" "Log message with clickable links to context")
+
 (package-file "logms.el")
+
+(depends-on "emacs" "27.1")
+(depends-on "f")
+(depends-on "s")
+(depends-on "ht")
 
 (development
  (depends-on "ert-runner"))
