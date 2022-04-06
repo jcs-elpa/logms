@@ -1,8 +1,10 @@
-(source "melpa")
-
-(package "logms" "0.3.1" "Log message with clickable links to context")
+(package "logms"
+         "0.3.1"
+         "Log message with clickable links to context")
 
 (package-file "logms.el")
+
+(source "melpa")
 
 (depends-on "emacs" "27.1")
 (depends-on "f")
@@ -12,5 +14,4 @@
 (development
  (depends-on "ert-runner"))
 
-(setq network-security-level 'low      ; see https://github.com/jcs090218/setup-emacs-windows/issues/156#issuecomment-932956432
-      byte-compile-error-on-warn nil)
+(setq network-security-level 'low)  ; see https://github.com/jcs090218/setup-emacs-windows/issues/156#issuecomment-932956432
