@@ -2,6 +2,9 @@
          "0.3.1"
          "Log message with clickable links to context")
 
+(website-url "https://github.com/jcs-elpa/logms")
+(keywords "debug" "log")
+
 (package-file "logms.el")
 
 (source "melpa")
