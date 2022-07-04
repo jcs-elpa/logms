@@ -3,7 +3,7 @@
          "Log message with clickable links to context")
 
 (website-url "https://github.com/jcs-elpa/logms")
-(keywords "debug" "log")
+(keywords "maint" "debug" "log")
 
 (package-file "logms.el")
 
