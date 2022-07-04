@@ -7,7 +7,7 @@
 ;; URL: https://github.com/jcs-elpa/logms
 ;; Version: 0.3.1
 ;; Package-Requires: ((emacs "27.1") (f "0.20.0") (s "1.9.0") (ht "2.3"))
-;; Keywords: debug log
+;; Keywords: maint debug log
 
 ;; This file is NOT part of GNU Emacs.
 
