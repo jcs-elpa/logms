@@ -1,6 +1,6 @@
 ;;; logms.el --- Log message with clickable links to context  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2021-2024  Shen, Jen-Chieh
+;; Copyright (C) 2021-2025  Shen, Jen-Chieh
 ;; Created date 2021-06-26 23:22:27
 
 ;; Author: Shen, Jen-Chieh <jcs090218@gmail.com>
