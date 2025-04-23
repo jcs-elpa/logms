@@ -1,3 +1,5 @@
+;; -*- mode: eask; lexical-binding: t -*-
+
 (package "logms"
          "0.3.1"
          "Log message with clickable links to context")
